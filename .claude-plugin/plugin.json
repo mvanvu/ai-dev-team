@@ -1,0 +1,7 @@
+{
+  "name": "ai-dev-team",
+  "version": "1.1.0",
+  "description": "AI software development team for Claude Code: 9 specialist agents (scout, analyst, architect, UI/UX designer, developer, PWA frontend engineer, code reviewer, security auditor, QA) orchestrated through spec, design, build/review/QA and a verified final review.",
+  "author": { "name": "mvanvu" },
+  "keywords": ["agents", "team", "orchestration", "code-review", "security", "qa", "pwa", "capacitor", "vue", "react"]
+}

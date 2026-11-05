@@ -1,0 +1,17 @@
+{
+  "name": "mvanvu",
+  "owner": {
+    "name": "mvanvu"
+  },
+  "metadata": {
+    "description": "mvanvu plugins for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "ai-dev-team",
+      "source": "./",
+      "description": "AI software development team: spec \u2192 design \u2192 build/review/QA \u2192 verified final review, with a PWA/Capacitor frontend specialist."
+    }
+  ]
+}
