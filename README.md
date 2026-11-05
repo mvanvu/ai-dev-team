@@ -25,7 +25,7 @@ From a local clone:
 claude --plugin-dir /path/to/ai-team            # try it for one session without installing
 ```
 ```
-/plugin marketplace add /path/to/ai-team         # or a Git URL / owner/repo
+/plugin marketplace add mvanvu/ai-dev-team        # or a local clone path
 /plugin install ai-dev-team@mvanvu
 ```
 
@@ -33,7 +33,7 @@ To have a project prompt teammates to install it, add to that project's `.claude
 ```json
 {
   "extraKnownMarketplaces": {
-    "mvanvu": { "source": { "source": "git", "url": "<git-url-of-this-repo>" } }
+    "mvanvu": { "source": { "source": "git", "url": "https://github.com/mvanvu/ai-dev-team.git" } }
   },
   "enabledPlugins": { "ai-dev-team@mvanvu": true }
 }
