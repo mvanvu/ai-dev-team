@@ -14,7 +14,7 @@ A Claude Code plugin that adds a 9-agent software team and an orchestrator skill
 | `pwa-frontend-engineer` | opus | Vue 3 / React TS PWA, headless core components + template packs, Capacitor |
 | `code-reviewer` | opus | Read-only code review |
 | `security-auditor` | opus | Threat modeling, OWASP / MASVS review, dependency audit (read-only) |
-| `qa-engineer` | sonnet | Runs tests, checks acceptance criteria and cross-module contracts |
+| `qa-engineer` | sonnet | Runs tests, checks acceptance criteria and cross-module contracts; browser testing via Claude in Chrome (self-connects, Playwright fallback) |
 
 All agents and skills are namespaced by the plugin, e.g. `ai-dev-team:developer`, `ai-dev-team:dev-team`.
 
