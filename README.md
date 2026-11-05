@@ -76,3 +76,7 @@ hooks/                           SessionStart hook that installs missing compani
 ```
 
 Validate after changes: `claude plugin validate .` and `claude --plugin-dir . plugin details ai-dev-team`.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
