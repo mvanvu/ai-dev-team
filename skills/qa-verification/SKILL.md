@@ -1,6 +1,6 @@
 ---
 name: qa-verification
-description: "QA procedure: run profile commands, verify each acceptance criterion with evidence, cross-check module boundary contracts (API vs web/mobile consumers), add missing integration tests, and maintain the QA report. Used by qa-engineer per task and before feature sign-off. Not for code-quality review (code-review-checklist)."
+description: "QA procedure: run profile commands, verify each acceptance criterion with evidence, cross-check module boundary contracts (API vs web/mobile consumers), test UI and PWA behavior in a real browser (Claude in Chrome, self-connecting when needed; Playwright fallback), add missing integration tests, and maintain the QA report. Used by qa-engineer per task and before feature sign-off. Not for code-quality review (code-review-checklist)."
 ---
 
 # QA verification
@@ -15,6 +15,7 @@ Run QA incrementally after each task — not once at the end. Most integration b
    - Compare field names and casing, types, nullability/optional, enum values, date formats, pagination shape, error codes and error body shape.
    - Any mismatch is a `QA_FAIL` even if unit tests pass.
 4. UI tasks: verify each UI-spec state is reachable (loading, empty, error, success, disabled).
+   **Browser testing**: any criterion observable only in a browser (UI flows, responsive layout, PWA install/offline/update, console errors, frontend network calls) is tested in a real browser — Claude in Chrome first (use the existing connection, otherwise self-connect: select a connected browser or launch Chrome and re-check), falling back to Playwright MCP, then the project's e2e runner. Mobile viewport first, then desktop. Follow `references/browser-testing.md`.
 5. Append results to the QA report and send the verdict to the leader.
 
 ## Feature sign-off

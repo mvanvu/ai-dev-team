@@ -84,7 +84,7 @@ For each task in dependency order (the leader updates the Status column of `_wor
 1. → the task's Owner (`developer` or `pwa-frontend-engineer`): "Implement T{id}". Wait for `DONE` / `BLOCKED`. Backend and frontend tasks with no dependency between them may run concurrently, one per implementer.
 2. → code-reviewer (and security-auditor if tagged `security` or any finding is tagged `→ security`; ui-ux-designer for design QA if tagged `ui`) in parallel.
 3. Any blocker/major/critical/high → forward the merged findings to the task's Owner → back to step 2 with only the reviewers who raised issues. **Max 3 rounds**; then mark `blocked` and report to the user.
-4. → qa-engineer: "QA T{id}". `QA_FAIL` → Owner fixes → QA again (counts toward the 3 rounds).
+4. → qa-engineer: "QA T{id}". Tasks tagged `ui` or `pwa` include browser testing (Claude in Chrome, Playwright fallback). The browser is a shared resource: run browser QA for one task at a time. If QA reports that the browser needs the user (extension not installed/signed in, dialog to dismiss), relay it to the user. `QA_FAIL` → Owner fixes → QA again (counts toward the 3 rounds).
 5. Mark `done`. Independent tasks (no shared files, no dependency) may run with a second developer instance using `isolation: "worktree"`, only when there are ≥ 4 independent tasks.
 
 After the last task: qa-engineer runs feature sign-off.
