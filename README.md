@@ -54,9 +54,16 @@ The final review phase uses the Workflow tool. Invoking the `dev-team` skill cou
 - All files the team writes (code, comments, specs, commit messages) are in English. Replies to the user follow the user's language.
 - No commits unless you ask; commit messages are imperative English with no AI attribution.
 
-## Optional companion skills
+## Companion plugins and skills (installed automatically)
 
-Agents use these when installed and skip them otherwise: `ui-ux-pro-max`, `frontend-design` (UI design data and direction), `security-audit` (full audits), `superpowers:systematic-debugging` (hard bugs).
+| Companion | Used by | How it gets installed |
+|---|---|---|
+| `superpowers` (systematic debugging) | developer | Plugin dependency — installed together with `ai-dev-team` |
+| `frontend-design` | ui-ux-designer | Plugin dependency — installed together with `ai-dev-team` |
+| `ui-ux-pro-max` | ui-ux-designer | SessionStart hook: adds marketplace `nextlevelbuilder/ui-ux-pro-max-skill` and installs `ui-ux-pro-max@ui-ux-pro-max-skill` |
+| `security-audit` | security-auditor | SessionStart hook: `npx skills add cloudflare/security-audit-skill -g -a claude-code -s security-audit -y` |
+
+The hook only acts when an item is missing (as a plugin or as a skill in `~/.claude/skills` / `.claude/skills`), installs in the background without blocking the session, and the item is available from the next session. Failed attempts are retried after 24h; the log is at `~/.claude/ai-dev-team/companions.log`. Requires `claude` and `npx` on `PATH`. Set `AI_DEV_TEAM_NO_AUTO_INSTALL=1` to disable it. Agents still work without these companions.
 
 ## Structure
 
@@ -66,6 +73,7 @@ Agents use these when installed and skip them otherwise: `ui-ux-pro-max`, `front
 agents/                          9 agent definitions
 skills/dev-team/                 orchestrator
 skills/<role-skill>/             per-role procedures (pwa-headless-ui has references/)
+hooks/                           SessionStart hook that installs missing companion skills
 ```
 
 Validate after changes: `claude plugin validate .` and `claude --plugin-dir . plugin details ai-dev-team`.
