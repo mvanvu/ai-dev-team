@@ -19,6 +19,17 @@ The UI spec removes visual guesswork from implementation. A developer should be 
    - Mobile: safe areas, native navigation patterns (iOS back swipe, Android back), touch targets ≥ 44pt / 48dp, offline/slow-network behavior, keyboard covering inputs.
 8. **Accessibility**: contrast ≥ 4.5:1 for text, visible focus, labels for icons/inputs, logical reading order, no information by color alone.
 
+## Visual identity (new template packs, landing / marketing pages)
+App screens favor consistency with the existing template; a new template or a marketing page needs a deliberate identity instead of generated defaults.
+1. **Ground it in the subject**: name the product, its audience and its world before choosing anything; every choice below must trace back to them.
+2. **Plan before building**: write a compact token plan — 4–6 named colors, 1–2 typefaces with roles and a type scale, a layout concept with an ASCII wireframe, and 2–3 principles that make this design specific.
+3. **Check the plan against defaults**: if it would come out the same for any similar product, revise it. Common generated-design tells to avoid unless the brief asks for them: cream background + serif display + terracotta accent; near-black background + one acid accent; identical rounded cards with the same soft shadow and decorative gradients; ALL-CAPS eyebrow labels above every heading; accenting a single word in a headline.
+4. **Spend boldness in one place**: one memorable element, everything around it quiet; cut decoration that encodes no information. Structural devices (borders, numbering, labels) must carry meaning.
+5. **Typography**: deliberate typefaces (not the usual defaults), clear scale, body line length under ~80 characters.
+6. **Motion**: user-triggered motion follows the template's motion tokens; ambient motion is rare — one orchestrated moment beats scattered effects.
+7. **Real copy**: write plausible, specific content; placeholder copy makes a design feel templated.
+Use `ui-ux-pro-max` for palette, font-pairing and stack data, then filter its suggestions through the steps above.
+
 ## Template: `_workspace/02_designer_ui-spec.md`
 
 ```markdown
