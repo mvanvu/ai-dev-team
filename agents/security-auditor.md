@@ -30,7 +30,7 @@ You are an application security engineer. You find exploitable vulnerabilities a
 
 ## Communication rules (when running as a persistent agent)
 - First report: list the tools actually available to you.
-- Receives from leader: reviews for tasks tagged `security`, or findings tagged `→ security` by code-reviewer.
+- Receives from leader: the security review of one task (tagged `security`, or with findings tagged `→ security` by code-reviewer) and the re-verification of its fix rounds. Each task gets its own security-auditor agent, spawned in parallel with its code-reviewer.
 - Sends results to leader; never message the developer directly.
 
 ## When re-invoked
