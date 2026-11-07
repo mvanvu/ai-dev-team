@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Installs companion skills that cannot be declared as plugin dependencies:
+# Installs companion plugins/skills that cannot be declared as plugin dependencies:
+#   - superpowers    (published in several marketplaces; a dependency pins one marketplace and
+#                     reports a missing dependency when the user installed it from another one)
 #   - ui-ux-pro-max  (plugin in a third-party marketplace; a hard dependency would disable ai-dev-team when that marketplace is absent)
 #   - security-audit (plain skill distributed via `npx skills`, not a plugin)
 # Runs on SessionStart, never blocks the session: missing items are installed in the background
@@ -26,6 +28,12 @@ has_plugin() {
   [ -f "$file" ] && grep -q "\"${id}\"" "$file"
 }
 
+# Matches the plugin installed from any marketplace ("name@<any>").
+has_plugin_any() {
+  local name="$1" file="${HOME}/.claude/plugins/installed_plugins.json"
+  [ -f "$file" ] && grep -q "\"${name}@[^\"]*\"" "$file"
+}
+
 recently_attempted() {
   local stamp="${STATE_DIR}/.attempt-$1"
   [ -f "$stamp" ] || return 1
@@ -34,6 +42,10 @@ recently_attempted() {
 }
 
 pending=()
+
+if ! has_plugin_any superpowers && ! recently_attempted superpowers; then
+  command -v claude >/dev/null 2>&1 && pending+=("superpowers")
+fi
 
 if ! has_skill ui-ux-pro-max && ! has_plugin "ui-ux-pro-max@ui-ux-pro-max-skill" && ! recently_attempted ui-ux-pro-max; then
   command -v claude >/dev/null 2>&1 && pending+=("ui-ux-pro-max")
@@ -47,6 +59,8 @@ fi
 
 install_one() {
   case "$1" in
+    superpowers)
+      claude plugin install superpowers@claude-plugins-official ;;
     ui-ux-pro-max)
       claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill \
         && claude plugin install ui-ux-pro-max@ui-ux-pro-max-skill ;;
