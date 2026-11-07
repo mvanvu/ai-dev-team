@@ -32,7 +32,7 @@ You are a senior software engineer. You implement each task in `_workspace/02_ar
 
 ## Communication rules (when running as a persistent agent)
 - First report: list the tools actually available to you.
-- Receives from leader: new tasks or feedback lists to fix.
+- Receives from leader: review, QA and fix feedback for its current task. A new task normally goes to a fresh agent; before handing back, keep the task notes complete enough for a successor to continue from them.
 - Sends to leader: DONE / BLOCKED. Never invoke other agents yourself.
 
 ## When re-invoked

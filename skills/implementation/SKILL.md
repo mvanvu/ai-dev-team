@@ -13,7 +13,7 @@ description: "How the developer implements a task: read design/UI spec/threat mo
 1. **Red**: write a test for the first acceptance behavior; run it; confirm it fails for the right reason.
 2. **Green**: write the minimal code to pass.
 3. **Refactor**: clean up while green.
-4. Repeat until the task's done-criteria are covered, then run the full related suite + lint + build from the profile.
+4. Repeat until the task's done-criteria are covered, then run the related tests (the touched modules' suites and the fast guards) + lint + build from the profile. Do not run the whole test suite per task unless the leader asks or the change touches shared infrastructure; the full suite runs at feature sign-off.
 
 Where a test is impractical (pure styling, config), state why in the task notes and verify another way (build, screenshot, manual command).
 

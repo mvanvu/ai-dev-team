@@ -8,7 +8,7 @@ description: "QA procedure: run profile commands, verify each acceptance criteri
 Run QA incrementally after each task — not once at the end. Most integration bugs live at module boundaries, and they are cheapest to catch right after the boundary is built.
 
 ## Per-task procedure
-1. Run the test/lint/build commands from `.claude/team/project-profile.md`. Keep trimmed real output.
+1. Run the test/lint/build commands from `.claude/team/project-profile.md`, limited to the tests related to the task (the full suite is for feature sign-off). Keep trimmed real output.
 2. For each acceptance criterion touched by the task: find the test that covers it; if none, write one (test files only). Mark `pass | fail | not-tested`.
 3. **Boundary check** for every contract touched (see design "Contracts"):
    - Read the producer (controller/handler/serializer) and every consumer (fetch hook, API client, mobile service, type definitions).
