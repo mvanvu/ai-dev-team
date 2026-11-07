@@ -15,7 +15,7 @@ The main session is the **leader**. It never writes production code itself; it r
 | 1 Profile | subagent | one-shot fact gathering |
 | 2 Spec | subagent | one-shot; leader handles user Q&A |
 | 3 Design | subagents in parallel | architect, designer, security are independent given the spec |
-| 4 Build loop | persistent agents | developer must keep context across review/QA rounds |
+| 4 Build loop | per-task agents | an implementer keeps context across one task's review/QA rounds, then is replaced |
 | 5 Final review | workflow | fixed fan-out over dimensions + adversarial verification |
 | 6 Report | leader | — |
 
@@ -76,7 +76,13 @@ When all return and the designer or security agent ran, re-invoke `architect` on
 **User gate:** show a short design summary (task count, key decisions, risks). Wait for approval when: greenfield, data migration, public API change, or > 8 tasks. Otherwise proceed and mention the user can stop you.
 
 ## Phase 4 — Build loop (persistent agents)
-Start persistent agents: `code-reviewer`, `qa-engineer`, and the implementers the task board needs — `developer` for tasks with Owner `developer`, `pwa-frontend-engineer` for tasks with Owner `pwa-frontend-engineer`; plus `security-auditor` if any task is tagged `security`, `ui-ux-designer` if any task is tagged `ui`. Keep each agent's ID/name from the Agent result and continue it with `SendMessage` so it keeps context. Each agent's first message lists its available tools — if one is missing a tool it needs, restart it without the restriction or do that step yourself.
+Start agents per task, not per run: `code-reviewer`, `qa-engineer`, and the implementers the task board needs — `developer` for tasks with Owner `developer`, `pwa-frontend-engineer` for tasks with Owner `pwa-frontend-engineer`; plus `security-auditor` if any task is tagged `security`, `ui-ux-designer` if any task is tagged `ui`. Keep each agent's ID/name from the Agent result and continue it with `SendMessage` for the review, QA and fix rounds of **the same task**, so it keeps that task's context.
+
+**Agent lifetime.** Context grows with every task, and a long-lived agent gets slower and costlier on every turn. So:
+- An implementer handles one task (or a small group of tasks that share files) and is then retired. The next task gets a fresh agent of the same type, briefed with the task row, the design/UI-spec sections, the previous task notes it depends on, and the ledger of rulings.
+- Reviewers (code, security, design QA) are spawned per review, and can run in parallel for different tasks. Re-verifying a fix round goes back to the reviewer that raised the findings.
+- Replace any agent early when its context passes ~500k tokens, even mid-task: ask it to write its notes file first, then brief the replacement from that file.
+- The handover lives in files (`_workspace/04_*_T{id}.md`, the task board, a rulings ledger), never only in an agent's memory. Each agent's first message lists its available tools — if one is missing a tool it needs, restart it without the restriction or do that step yourself.
 
 Topology is **hub-and-spoke**: agents only talk to the leader. This keeps one source of truth and avoids conflicting instructions.
 
@@ -85,6 +91,7 @@ For each task in dependency order (the leader updates the Status column of `_wor
 2. → code-reviewer (and security-auditor if tagged `security` or any finding is tagged `→ security`; ui-ux-designer for design QA if tagged `ui`) in parallel.
 3. Any blocker/major/critical/high → forward the merged findings to the task's Owner → back to step 2 with only the reviewers who raised issues. **Max 3 rounds**; then mark `blocked` and report to the user.
 4. → qa-engineer: "QA T{id}". Tasks tagged `ui` or `pwa` include browser testing (Claude in Chrome, Playwright fallback). The browser is a shared resource: run browser QA for one task at a time. If QA reports that the browser needs the user (extension not installed/signed in, dialog to dismiss), relay it to the user. `QA_FAIL` → Owner fixes → QA again (counts toward the 3 rounds).
+**Test cost.** Per task, run only the tests related to the change (the task's own tests, the suites for the touched modules, and the fast guards). The full suite runs at feature sign-off and in Phase 5, or earlier only when a change touches shared infrastructure. When the project's test runner is a shared, serial resource (one database, one container), say so in the brief and keep runs targeted so agents do not queue behind each other.
 5. Mark `done`. Independent tasks (no shared files, no dependency) may run with a second developer instance using `isolation: "worktree"`, only when there are ≥ 4 independent tasks.
 
 After the last task: qa-engineer runs feature sign-off.
