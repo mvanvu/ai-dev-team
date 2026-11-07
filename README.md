@@ -58,7 +58,7 @@ The final review phase uses the Workflow tool. Invoking the `dev-team` skill cou
 
 | Companion | Used by | How it gets installed |
 |---|---|---|
-| `superpowers` (systematic debugging) | developer | Plugin dependency — installed together with `ai-dev-team` |
+| `superpowers` (systematic debugging) | developer | SessionStart hook: `claude plugin install superpowers@claude-plugins-official`, skipped when superpowers is already installed from any marketplace |
 | `ui-ux-pro-max` | ui-ux-designer | SessionStart hook: adds marketplace `nextlevelbuilder/ui-ux-pro-max-skill` and installs `ui-ux-pro-max@ui-ux-pro-max-skill` |
 | `security-audit` | security-auditor | SessionStart hook: `npx skills add cloudflare/security-audit-skill -g -a claude-code -s security-audit -y` |
 
