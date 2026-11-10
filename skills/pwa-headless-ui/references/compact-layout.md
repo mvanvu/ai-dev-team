@@ -9,6 +9,7 @@ Applies below the `md` breakpoint (and on every phone-sized app screen). Desktop
 2. Buttons and actions
 3. Icon-left / text-right rows
 4. Text overflow
+4a. No redundant instruction text
 5. Where it lives in the architecture
 6. Flutter and native
 7. Checks
@@ -88,6 +89,17 @@ No text may be clipped by its container without an ellipsis, overlap a neighbor,
 - Test content is the worst realistic case: the longest supported locale, a 60-character name without spaces, a 7-digit amount, and OS font scale 130%.
 - Only intended scrollers (chip row, carousel, code block) scroll horizontally; the page itself never does.
 
+## 4a. No redundant instruction text
+An app screen explains itself through layout, labels and familiar controls. Every line of guidance costs space and gets skipped after the first use.
+- No subtitle or description under a screen or section title that restates it ("Orders — View and manage your orders").
+- No helper text that repeats the label or the placeholder ("Email — Enter your email"); helper text only for a real constraint the user cannot guess (format, limit, consequence), one short line.
+- No intro paragraphs, "how to use this screen" boxes or permanent tip banners. Teach a non-obvious gesture once (a one-time hint that disappears after first use), not on every visit.
+- Placeholders are examples or nothing, never instructions; labels stay visible above or beside the field.
+- Empty states: one short line saying what to do next, plus the action button — no paragraph, no large illustration on functional screens.
+- Errors and confirmations name what happened and what to do in one sentence; no stacked explanations.
+- Tooltips and info icons only for information that is useful and not visible elsewhere; never on every field.
+- When a screen seems to need instructions, fix the design first (clearer labels, defaults, grouping, order).
+
 ## 5. Where it lives in the architecture
 - Density is a template concern: spacing tokens (`--space-*`, `--gutter`, `--row-gap`) in `tokens.css` and recipes; core components expose semantic props (`<UiButtonGroup>`, `<UiListItem icon title description trailing>`, `<UiField inline>`), not spacing classes.
 - `UiScrollRow` (and every core component that scrolls horizontally: tabs, chip groups, carousels) owns the hidden scrollbar, edge fade and overscroll containment.
@@ -109,3 +121,4 @@ Run at 360×800 and 390×844, then with font scale 130% and the longest locale:
 5. Short fields and label/value pairs that fit are paired on one row; section actions sit on the header line.
 6. Long-content screenshot per screen (worst-case strings) attached to the task notes; Flutter test and debug output contains no `overflowed`.
 7. Horizontal scrollers (chip rows, tabs, carousels, wide tables) scroll by swipe and draw no scrollbar on phone viewports — also reported by `overflow-check.mjs`.
+8. No redundant instruction text (§4a): no subtitle restating a title, no helper text repeating a label or placeholder, no permanent tips or intro paragraphs, empty states and errors in one short line.

@@ -35,8 +35,8 @@ Read `references/architecture.md` for the template contract, provider, core comp
 2. Need a component the core layer lacks? Add it to `src/ui/core/` first (with behavior tests), add its recipe slot to the `UiTemplate` contract, then implement the recipe in **every** existing template (the compiler will list the ones you missed).
 3. Build the feature screen using only core components. Mobile layout first; add `md:` / `lg:` enhancements and the desktop shell second.
 4. Implement every UI-spec state (loading, empty, error, success, disabled).
-5. Run: type-check (`vue-tsc --noEmit` or `tsc --noEmit`), lint, unit tests, production build. Record real output in task notes.
-6. Verify at 360px and 1280px widths (screenshot via the `run` skill or Playwright when available); at 360px also with worst-case strings (longest locale, long unbroken name, large amount) per `references/compact-layout.md` §7.
+5. Run once, at the end: type-check (`vue-tsc --noEmit` or `tsc --noEmit`), lint of changed files, the profile's `test (related)` command on the changed files plus mapped guards, and the production build only when the task changes built output or a browser check needs it. Record real output in task notes. Never the whole suite per task.
+6. After that build, verify once at 360px and 1280px widths (screenshot via the `run` skill or Playwright when available); at 360px also with worst-case strings (longest locale, long unbroken name, large amount) per `references/compact-layout.md` §7.
 
 ## Adding a new template
 1. Copy `src/templates/default/` to `src/templates/<name>/`.
@@ -48,10 +48,13 @@ Read `references/architecture.md` for the template contract, provider, core comp
 - Base styles target ~360px; enhance with `sm/md/lg/xl` breakpoints. Never write desktop-first then override down.
 - Touch targets ≥ 44px; no hover-only interactions; use `:focus-visible`.
 - Pagination never renders every page number: `UiPagination` shows first/last pages, the current page with neighbors and ellipses (`1 2 3 … 10 11 12`), fewer items on mobile — see `references/architecture.md` §4a.
-- No wasted space and no overflowing text on phones (mobile web and app): button pairs and short fields share a row, icon rows leave no dead space, horizontal scrollers are swipe-only with the scrollbar hidden, every text container is `min-w-0` with a truncate / clamp / wrap decision — `references/compact-layout.md`.
+- No wasted space and no overflowing text on phones (mobile web and app): button pairs and short fields share a row, icon rows leave no dead space, horizontal scrollers are swipe-only with the scrollbar hidden, no redundant instruction text, every text container is `min-w-0` with a truncate / clamp / wrap decision — `references/compact-layout.md`.
 - Respect safe areas: `viewport-fit=cover` + `env(safe-area-inset-*)` padding in shells.
 - Use `dvh` units for full-height layouts (mobile browser bars).
 - Adaptive shells: `MobileShell` (bottom nav, top app bar) and `DesktopShell` (sidebar, wider content) chosen by a media-query composable/hook, both supplied by the template.
+
+## Pull to refresh
+Every phone screen with a server-data list supports pull to refresh: platform-style indicator that follows the finger with resistance, 64–72px threshold with a light haptic in the native app, refetch of the visible tab only with content kept on screen, toast on error, browser/WebView page reload disabled, vertical/horizontal direction lock, off while a modal is open or an input has focus. Read `references/pull-to-refresh.md` (web, Flutter, native).
 
 ## Native feel
 The PWA must feel like a native app: gesture-driven navigation that follows the finger, direction-aware page transitions, bottom sheets, haptic feedback, virtualized 60fps lists, optimistic updates, and instant launch from a persisted cache. Read `references/native-feel.md` for the library stack (Vue: `motion-v`, `@vueuse/core`, `vue-sonner`, `@tanstack/vue-virtual`, `@tanstack/vue-query`; React: `motion`, `sonner`, `@tanstack/react-virtual`, `@tanstack/react-query`; both: View Transitions API, `@capacitor/haptics`), the core components that wrap them, motion tokens in templates, the touch CSS baseline, and the performance budget.
@@ -78,4 +81,4 @@ To make the wrapped app feel native, also read `references/capacitor-native-feel
 ## Done criteria
 - Type-check, lint, tests, build all green (real output in notes).
 - Task notes contain the `## Rule compliance` table: one row with evidence per rule ID of `BASE` and each assigned pack (`ai-dev-team:dev-team` → `references/rule-packs.md` §6).
-- Without assigned packs (standalone use), run the numbered checks of every reference this task touched: `architecture.md` §9 always; `compact-layout.md` §7 for phone screens; `list-page.md` §9 for lists and pickers; `native-feel.md` §11 for navigation, gestures, overlays and long lists; `connectivity.md` §10 for mobile apps with online data; the Checks sections of `pwa.md`, `capacitor.md` and `capacitor-native-feel.md` §10 for PWA / Capacitor tasks.
+- Without assigned packs (standalone use), run the numbered checks of every reference this task touched: `architecture.md` §9 always; `compact-layout.md` §7 for phone screens; `list-page.md` §9 for lists and pickers; `native-feel.md` §11 for navigation, gestures, overlays and long lists; `pull-to-refresh.md` §8 for server-data lists on phones; `connectivity.md` §10 for mobile apps with online data; the Checks sections of `pwa.md`, `capacitor.md` and `capacitor-native-feel.md` §10 for PWA / Capacitor tasks.

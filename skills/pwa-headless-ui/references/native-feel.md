@@ -78,7 +78,7 @@ router.afterEach(async () => {
 
 | Gesture | Core component | Rule |
 |---|---|---|
-| Pull to refresh | `UiPullToRefresh` | Only when scrolled to top; resistance curve; triggers query `refetch`; set `overscroll-behavior-y: contain` on the scroller to disable the browser's own refresh |
+| Pull to refresh | `UiPullToRefresh` | Full contract (threshold, haptic, active-tab refetch, direction lock, browser refresh off): `pull-to-refresh.md` |
 | Swipe actions on list rows | `UiSwipeAction` | Reveal actions with drag; snap open/closed with spring; full swipe = primary action with haptic |
 | Drag to dismiss sheet | `UiSheet` | Velocity-aware dismissal; snap points |
 | Edge swipe back | `UiPage` | See section 3 |

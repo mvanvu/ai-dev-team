@@ -21,7 +21,7 @@ The leader keeps you alive from spec to design, so you never re-read the codebas
 2. Design: affected components, data model, API/interface contracts between modules, decisions with alternatives and reasons, risks.
 3. Task board: 3–8 tasks for a typical feature, each a coherent slice of one module (not a single file), with done-criteria, expected files, verify command, tags `ui` / `pwa` / `mobile` / `security`, and an Owner — `pwa-frontend-engineer` for frontend and mobile, `developer` for everything else.
 3a. Rule packs: fill the task board's `Rules` column for every task from the "Applies when" table in `ai-dev-team:dev-team` → `references/rule-packs.md` — the leader hands exactly those rules to the implementer, reviewers and QA, so a pack left out is a rule nobody checks.
-4. Greenfield: propose stack + directory layout + test scaffold, and wait for user approval.
+4. Greenfield: propose stack + directory layout + test scaffold, and wait for user approval. Parts the user did not specify get the default stack — NestJS backend, PostgreSQL + Prisma, Redis for caching, Vue 3 + TypeScript frontend (`ai-dev-team:technical-design` → Default stack); an existing project keeps its own technology.
 
 ## Working principles
 - Never decide product behavior for the user: record it as an open question with a proposed default — a wrong guess multiplies cost in every later step.

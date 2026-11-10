@@ -56,12 +56,14 @@ Parallel agents are cheap; the test runners and builds they start are not. The p
 - `heavy_workers` (default CPU threads ÷ 4): worker cap written into every heavy test/build command.
 - Heavy commands go through `.claude/team/run-heavy.sh`, which lets only one run at a time on the machine (`flock`, with a `mkdir` lock fallback on macOS) under `nice`. `AI_DEV_TEAM_LOCK_WAIT` sets the maximum wait in seconds (default 1800).
 
-Reviewers read the implementer's test output instead of rerunning it, per-task QA runs in parallel with review, and the full suite runs once at sign-off.
+Reviewers read the implementer's test output instead of rerunning it, per-task QA runs in parallel with review, and the full suite runs once at sign-off. Implementers run only the tests related to the files they changed (`vitest related`, mapped guards), once per task and once per fix round; tasks that share files or a built bundle never run at the same time on one working tree.
 
 ## Conventions
 
 - All files the team writes (code, comments, specs, commit messages) are in English. Replies to the user follow the user's language.
 - Phone screens (mobile web and app) waste no space and never overflow: adjacent buttons and short fields share a row when they fit, icon/text rows leave no dead space, every text element has a truncate / clamp / wrap rule checked with worst-case strings (`skills/pwa-headless-ui/references/compact-layout.md`).
+- Default stack when the request names no technology: NestJS backend, PostgreSQL + Prisma, Redis for caching, Vue 3 + TypeScript frontend — proposed for approval, and only for parts the project does not already have (`skills/technical-design/SKILL.md`).
+- Mobile lists support pull to refresh of the visible tab only, without triggering the browser reload or fighting tab swipes (`skills/pwa-headless-ui/references/pull-to-refresh.md`); app screens carry no redundant instruction text, and designs avoid the generated look (`skills/ui-ux-design/references/authentic-design.md`).
 - Query count never grows with row count: no N+1 queries or per-row requests, proven by query-count tests (`skills/code-review-checklist/references/query-performance.md`).
 - Rules are enforced per task: the task board lists the rule packs each task must follow, the implementer reports one row of evidence per rule, reviewers and QA re-check them, and the leader only closes a task when every rule is confirmed (`skills/dev-team/references/rule-packs.md`).
 - No commits unless you ask; commit messages are imperative English with no AI attribution.
