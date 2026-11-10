@@ -1,11 +1,11 @@
 ---
 name: spec-writing
-description: "Writes a feature spec: goal, scope, Given/When/Then acceptance criteria, edge cases, non-functional constraints, has_ui/security_sensitive flags and open questions. Used by architect (spec mode), or when asked to 'write a spec', 'analyze requirements', or 'write acceptance criteria'. Not for technical design (use technical-design)."
+description: "Writes a feature spec: goal, scope, Given/When/Then acceptance criteria, edge cases, non-functional constraints, has_ui/security_sensitive flags and open questions. Used by the dev-team leader when superpowers is not installed (and as the header and AC format any spec must have), or when asked to 'write a spec', 'analyze requirements', or 'write acceptance criteria'. Not for technical design (use technical-design)."
 ---
 
 # Spec writing
 
-A good spec lets three different people (designer, developer, QA) read it and understand the same thing. The test: every acceptance criterion converts directly into one test.
+A good spec lets three different readers (developer, reviewer, qc) read it and understand the same thing. The test: every acceptance criterion converts directly into one test.
 
 ## Procedure
 1. Read the request, the project profile and related code (models, routes, existing screens).
@@ -17,7 +17,7 @@ A good spec lets three different people (designer, developer, QA) read it and un
 5. Set flags `has_ui` and `security_sensitive` (auth, authorization, PII, payments, uploads, external input, third-party integrations).
 6. Open questions: only ask what changes behavior; each comes with a proposed default.
 
-## Template: `_workspace/01_architect_spec.md`
+## Template: `_workspace/01_spec.md`
 
 ```markdown
 # Spec: <feature name>
@@ -29,11 +29,13 @@ flags: has_ui=<true|false>, security_sensitive=<true|false>, platforms=<web|ios|
 - In scope:
 - Out of scope:
 ## Acceptance criteria
-- AC1: Given … When … Then …
+- AC-1: Given … When … Then …
 ## Edge cases
 ## Non-functional constraints
 ## Open questions
 - Q1: … (proposed default: …)
 ```
+
+A spec written with `superpowers:brainstorming` gets the `flags:` line and `AC-n` numbering added by the leader; the rest of its structure stays.
 
 Bug fix: replace "Goal" with "Current behavior / Expected behavior / Steps to reproduce".

@@ -81,6 +81,7 @@ Flows that cost money or harm users when automated — signup, checkout, booking
 - A CDN/WAF sits in front of public traffic and the origin only accepts traffic from it (origin IP allowlist or authenticated origin pulls).
 - Autoscaling has upper bounds and budget alerts, so an attack becomes degraded service, not an unbounded bill.
 - Monitoring alerts on spikes in 429s, 4xx/5xx ratios, per-client request volume and AI token spend; logs carry a client identifier for blocking.
+- These controls usually live outside the repository (CDN/WAF console, cloud account, infrastructure repo). When one is not visible in the repo, report it as `needs_validation` naming the missing fact — never `fail` just because it is absent from the code.
 
 ## 9. Mobile and PWA clients
 

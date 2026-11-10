@@ -4,7 +4,8 @@
 # agents queue instead of saturating the CPU and freezing the desktop.
 #
 # Usage: .claude/team/run-heavy.sh <command> [args...]
-# Env:   AI_DEV_TEAM_LOCK       lock path (default: $TMPDIR or /tmp + ai-dev-team-heavy.lock; machine-wide)
+# Env:   AI_DEV_TEAM_LOCK       lock path (default: $TMPDIR or /tmp + ai-dev-team-heavy.lock; machine-wide;
+#                               without flock the lock is the directory <lock>.d holding the owner's pid)
 #        AI_DEV_TEAM_LOCK_WAIT  max seconds to wait for the lock (default 1800)
 # Exit:  the command's exit code, or 75 when the lock wait timed out.
 set -u
@@ -27,13 +28,45 @@ if command -v flock >/dev/null 2>&1; then
   exec flock -o -w "$wait_s" -E 75 "$lock" nice -n 10 "$@"
 fi
 
-# Fallback for systems without flock (macOS): an atomic mkdir lock with stale-owner cleanup.
+# Fallback for systems without flock (macOS): an atomic mkdir lock. The owner pid is written
+# atomically (pid.tmp then mv), so a reader sees either no pid or the whole pid.
 dir="$lock.d"
 start=$(date +%s)
-until mkdir "$dir" 2>/dev/null; do
+nopid_since=""
+while :; do
+  if mkdir "$dir" 2>/dev/null; then
+    # Ours only if the pid lands in it (a breaker may have renamed the directory meanwhile).
+    if echo $$ > "$dir/pid.tmp" 2>/dev/null && mv -f "$dir/pid.tmp" "$dir/pid" 2>/dev/null \
+      && [ "$(cat "$dir/pid" 2>/dev/null || true)" = "$$" ]; then
+      break
+    fi
+    continue
+  fi
   owner=$(cat "$dir/pid" 2>/dev/null || true)
-  if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
-    rm -rf "$dir"
+  stale=0
+  if [ -n "$owner" ]; then
+    nopid_since=""
+    kill -0 "$owner" 2>/dev/null || stale=1
+  else
+    # No pid yet: the owner may be between mkdir and writing it. Stale after 10 s without one.
+    now=$(date +%s)
+    if [ -z "$nopid_since" ]; then nopid_since=$now
+    elif [ $(( now - nopid_since )) -ge 10 ]; then stale=1
+    fi
+  fi
+  if [ "$stale" -eq 1 ]; then
+    # Break the stale lock by an atomic rename: of several waiters only one gets the directory.
+    rm -rf "$dir.stale.$$"
+    if mv "$dir" "$dir.stale.$$" 2>/dev/null; then
+      taken=$(cat "$dir.stale.$$/pid" 2>/dev/null || true)
+      if [ "$taken" != "$owner" ]; then
+        # Not the lock judged stale: another waiter broke that one and a new owner took the path
+        # in between. Hand it back while nobody has claimed the path yet, and wait again.
+        if mkdir "$dir" 2>/dev/null && [ -n "$taken" ]; then mv "$dir.stale.$$/pid" "$dir/pid" 2>/dev/null; fi
+      fi
+      rm -rf "$dir.stale.$$"
+    fi
+    nopid_since=""
     continue
   fi
   if [ $(( $(date +%s) - start )) -ge "$wait_s" ]; then
@@ -42,6 +75,11 @@ until mkdir "$dir" 2>/dev/null; do
   fi
   sleep 2
 done
-echo $$ > "$dir/pid"
-trap 'rm -rf "$dir"' EXIT INT TERM
+release() {
+  # Remove the lock only while it is still ours.
+  if [ "$(cat "$dir/pid" 2>/dev/null || true)" = "$$" ]; then rm -rf "$dir"; fi
+}
+trap release EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 low_priority "$@"

@@ -1,11 +1,11 @@
 ---
 name: security-review-checklist
-description: "Threat-modeling template and vulnerability review checklist (OWASP Top 10, OWASP API Top 10, OWASP MASVS for mobile, authn/authz, secrets, dependencies, automated abuse by scrapers/bots/AI crawlers and agents) with finding format and structured output. Used by security-auditor and the dev-team final review workflow. Also covers full codebase audits and pen-test style reviews (procedure, severity anchors, attack classes by domain) in its references."
+description: "Threat-modeling template and vulnerability review checklist (OWASP Top 10, OWASP API Top 10, OWASP MASVS for mobile, authn/authz, secrets, dependencies, automated abuse by scrapers/bots/AI crawlers and agents) with finding format and structured output. Used by the reviewer agent (task reviews, threat models, full audits) and the dev-team final review workflow. Also covers full codebase audits and pen-test style reviews (procedure, severity anchors, attack classes by domain) in its references."
 ---
 
 # Security review checklist
 
-## Threat model (design phase): `_workspace/02_security_threat-model.md`
+## Threat model (planning phase): `_workspace/02_threat-model.md`
 ```markdown
 # Threat model: <feature>
 ## Assets (data/capabilities worth protecting)
@@ -14,7 +14,7 @@ description: "Threat-modeling template and vulnerability review checklist (OWASP
 | Flow | Threat | Category | Likelihood | Impact | Mitigation → task |
 ## Automated abuse (scrapers, bots, AI crawlers/agents) — one row per public flow, see references/automated-abuse.md
 ## Security requirements for implementation
-- SR1: ...
+- SEC-1: ... (one testable requirement per line; the leader assigns each to tasks)
 ```
 
 ## Code review checklist

@@ -15,7 +15,7 @@ VitePWA({
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    orientation: 'portrait',
+    // orientation: set only when the spec requires a locked orientation.
     background_color: '#ffffff',
     theme_color: '#ffffff',
     icons: [
@@ -28,9 +28,10 @@ VitePWA({
     navigateFallback: '/index.html',
     navigateFallbackDenylist: [/^\/api\//],
     runtimeCaching: [
-      // API: fresh data first, fall back to cache when offline.
-      { urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkFirst',
-        options: { cacheName: 'api', networkTimeoutSeconds: 5, expiration: { maxEntries: 100, maxAgeSeconds: 86400 } } },
+      // No `/api/` runtime cache by default: offline data comes from the persisted query cache (see below).
+      // Only public, non-personal endpoints may be added here, by name, e.g.:
+      // { urlPattern: ({ url }) => ['/api/public/catalog', '/api/public/config'].includes(url.pathname), handler: 'NetworkFirst',
+      //   options: { cacheName: 'public-api', networkTimeoutSeconds: 5, expiration: { maxEntries: 50, maxAgeSeconds: 86400 } } },
       // Images: cache first, bounded.
       { urlPattern: ({ request }) => request.destination === 'image', handler: 'CacheFirst',
         options: { cacheName: 'images', expiration: { maxEntries: 200, maxAgeSeconds: 2592000 } } },
@@ -39,7 +40,7 @@ VitePWA({
 })
 ```
 
-Never cache authenticated API responses that contain personal data unless the spec allows it; coordinate with `security-auditor` (shared devices, logout must clear caches).
+Never cache authenticated API responses in the service worker. Offline data for signed-in users comes from the persisted TanStack Query cache (`native-feel.md` §1 and §7), which is cleared on logout and on user switch; persist personal data at all only when the spec allows it, and have the threat model cover it (shared devices).
 
 ## Update prompt
 - Vue: `import { useRegisterSW } from 'virtual:pwa-register/vue'` → `needRefresh`, `offlineReady`, `updateServiceWorker()`.
