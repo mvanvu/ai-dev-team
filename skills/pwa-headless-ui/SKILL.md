@@ -36,7 +36,7 @@ Read `references/architecture.md` for the template contract, provider, core comp
 3. Build the feature screen using only core components. Mobile layout first; add `md:` / `lg:` enhancements and the desktop shell second.
 4. Implement every UI-spec state (loading, empty, error, success, disabled).
 5. Run once, at the end: type-check (`vue-tsc --noEmit` or `tsc --noEmit`), lint of changed files, the profile's `test (related)` command on the changed files plus mapped guards, and the production build only when the task changes built output or a browser check needs it. Record real output in task notes. Never the whole suite per task.
-6. After that build, verify once at 360px and 1280px widths (screenshot via the `run` skill or Playwright when available); at 360px also with worst-case strings (longest locale, long unbroken name, large amount) per `references/compact-layout.md` §7.
+6. After that build, run the full sweep once (`ai-dev-team:dev-team` → `references/resource-budget.md` §3): every changed screen with worst-case strings (longest locale, long unbroken name, large amount) at every `ui_widths` × `ui_themes` of the profile, in one `overflow-check.mjs --sheet` run through `run-heavy.sh`. Open every contact sheet, fix what is wrong, and rerun the sweep only for the screens you fixed (`references/compact-layout.md` §7).
 
 ## Adding a new template
 1. Copy `src/templates/default/` to `src/templates/<name>/`.
@@ -80,5 +80,5 @@ To make the wrapped app feel native, also read `references/capacitor-native-feel
 
 ## Done criteria
 - Type-check, lint, tests, build all green (real output in notes).
-- Task notes contain the `## Rule compliance` table: one row with evidence per rule ID of `BASE` and each assigned pack (`ai-dev-team:dev-team` → `references/rule-packs.md` §6).
+- Task notes contain the `## Rule compliance` table: one row with evidence per rule ID of `BASE`, `COST` and each assigned pack (`ai-dev-team:dev-team` → `references/rule-packs.md` §6).
 - Without assigned packs (standalone use), run the numbered checks of every reference this task touched: `architecture.md` §9 always; `compact-layout.md` §7 for phone screens; `list-page.md` §9 for lists and pickers; `native-feel.md` §11 for navigation, gestures, overlays and long lists; `pull-to-refresh.md` §8 for server-data lists on phones; `connectivity.md` §10 for mobile apps with online data; the Checks sections of `pwa.md`, `capacitor.md` and `capacitor-native-feel.md` §10 for PWA / Capacitor tasks.

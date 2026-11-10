@@ -53,7 +53,7 @@ Where a test is impractical (pure styling, config), state why in the task notes 
 | Rule | Status | Evidence |
 |---|---|---|
 ```
-One row per rule ID of `BASE` and every assigned pack: `pass` with evidence another agent can open (test name, `file:line`, command output, artifact path), `n-a` with the reason, or `fail`. A `fail` or an unchecked rule means the task is not done — fix it or report `BLOCKED`. Rules with a script (`.claude/team/rule-checks.sh`, `.claude/team/overflow-check.mjs` — §9 of that file) are proven by the script's output. Format and rules: `ai-dev-team:dev-team` → `references/rule-packs.md` §6. The leader returns a `DONE` whose notes lack this table.
+One row per rule ID of `BASE`, `COST` and every assigned pack: `pass` with evidence another agent can open (test name, `file:line`, command output, artifact path), `n-a` with the reason, or `fail`. A `fail` or an unchecked rule means the task is not done — fix it or report `BLOCKED`. Rules with a script (`.claude/team/rule-checks.sh`, `.claude/team/overflow-check.mjs` — §9 of that file) are proven by the script's output. Format and rules: `ai-dev-team:dev-team` → `references/rule-packs.md` §6. The leader returns a `DONE` whose notes lack this table.
 
 ## Applying feedback
 Fix each listed finding; reply per finding `fixed` / `disagree: <reason>`; update the `## Rule compliance` rows the fix touches; rerun only the related tests of the files changed in this round (and rebuild once if built output changed); report `DONE T{id}` again.

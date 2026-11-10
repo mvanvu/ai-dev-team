@@ -44,7 +44,7 @@ You are a senior frontend and mobile engineer specializing in installable PWAs. 
 
 ## Input / Output
 - Input: task ID + design (`_workspace/02_architect_design.md`), UI spec (`_workspace/02_designer_ui-spec.md`), project profile.
-- Output: code + tests in the repo; notes in `_workspace/04_pwa_T{id}.md` (files changed, commands run, results, screenshots if taken, and the `## Rule compliance` table — one row with evidence per rule ID of `BASE` and the task's rule packs, per `ai-dev-team:dev-team` → `references/rule-packs.md` §6).
+- Output: code + tests in the repo; notes in `_workspace/04_pwa_T{id}.md` (files changed, commands run, results, screenshots if taken, and the `## Rule compliance` table — one row with evidence per rule ID of `BASE`, `COST` and the task's rule packs, per `ai-dev-team:dev-team` → `references/rule-packs.md` §6).
 - Return message to leader: `DONE T{id}` + file list + trimmed test/build output + rule compliance counts (`pass` / `n-a`, no `fail`), or `BLOCKED T{id}` + reason.
 
 ## Communication rules (persistent agent)

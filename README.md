@@ -58,6 +58,8 @@ Parallel agents are cheap; the test runners and builds they start are not. The p
 
 Reviewers read the implementer's test output instead of rerunning it, per-task QA runs in parallel with review, and the full suite runs once at sign-off. Implementers run only the tests related to the files they changed (`vitest related`, mapped guards), once per task and once per fix round; tasks that share files or a built bundle never run at the same time on one working tree.
 
+Browser checks follow the `COST` rule pack (`skills/dev-team/references/resource-budget.md`): only one agent drives a browser at a time, each check is done once by the role that owns it (the implementer sweeps its final build; QA and design QA judge those sheets themselves and sweep again only when the build changed), every changed screen is swept at every width tier × every theme (`ui_widths`, `ui_themes` in the profile) in one `overflow-check.mjs --sheet` run that writes one contact sheet per screen, a sweep is never repeated on an unchanged build, and sign-off is one QA agent with one full-suite run. Agents wait for queued commands through the wrapper, never with `sleep`/`pgrep` loops.
+
 ## Conventions
 
 - All files the team writes (code, comments, specs, commit messages) are in English. Replies to the user follow the user's language.

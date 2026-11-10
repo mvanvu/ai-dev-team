@@ -19,7 +19,7 @@ The project profile is the team's shared source of truth: which test command the
 6. **Security tooling**: record the dependency audit command for the stack (`npm audit`, `composer audit`, `pip-audit`, `govulncheck`, ...).
 7. **Resource budget** — so parallel agents do not saturate the machine:
    - Copy `references/run-heavy.sh` from this skill's directory to `.claude/team/run-heavy.sh` and make it executable. It runs one heavy command at a time machine-wide, at low CPU priority.
-   - `heavy_workers` = max(2, CPU threads ÷ 4) (`nproc`, or `sysctl -n hw.ncpu` on macOS). `max_agents` = 4 unless the existing profile sets another value — keep the user's value on re-profiling.
+   - `heavy_workers` = max(2, CPU threads ÷ 4) (`nproc`, or `sysctl -n hw.ncpu` on macOS). `max_agents` = 4 unless the existing profile sets another value — keep the user's value on re-profiling. For a project with UI: `ui_widths` = the phone widths 360 and 390 plus every breakpoint tier the CSS / design tokens define and 1920 (default `360,390,768,1024,1280,1440,1920`), `ui_themes` = the themes the app ships (`light,dark` when it has a dark mode), and how to switch theme when it is not `prefers-color-scheme` (a `--theme-set` snippet such as `document.documentElement.dataset.theme = theme`).
    - Write every heavy command (full/module test runs, builds, e2e, audits, native builds) in the Commands table already wrapped and worker-capped, e.g. `.claude/team/run-heavy.sh npx vitest run --maxWorkers=8`. Worker flags: Vitest/Jest `--maxWorkers=N`, pytest-xdist `-n N`, ParaTest `--processes=N`, Go `-p N`, Gradle `--max-workers=N`, Maven `-T N`, `flutter test -j N`, Playwright `--workers=N`, `cargo test -j N`, `make -jN`. Docker-based runners: add `--cpus=N` or set it in the compose file used for tests. Record also the light command for a single test file.
 7a. **Per-task test scope** — record what an implementer runs per task, so it never defaults to the whole suite:
    - `test (related)`: a command that takes the changed files and runs only the tests that import them — `vitest related --run <files>`, `jest --findRelatedTests <files>`, `pytest <test paths>`, PHPUnit / Go / Cargo with the test files of the touched module. Cap workers. Verify it on one file.
@@ -41,6 +41,8 @@ tooling_policy: latest-stable | keep-existing
 ui: none | web | mobile | web+mobile
 mobile_platform: none | flutter | capacitor | native | react-native
 max_agents: 4
+ui_widths: 360,390,768,1024,1280,1440,1920
+ui_themes: light,dark
 heavy_workers: N
 ---
 # Project Profile
