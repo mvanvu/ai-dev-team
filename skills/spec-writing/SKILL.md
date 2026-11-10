@@ -13,7 +13,7 @@ A good spec lets three different people (designer, developer, QA) read it and un
 3. Write acceptance criteria. Each one: a single observable behavior with concrete data.
    - Good: `Given a cart with 2 items, When the user removes 1, Then the total updates and 1 line remains`.
    - Bad: `The cart works well`.
-4. Walk the edge-case list: empty data, very large data, malformed input, duplicates, concurrency, network loss, missing permission, expired session, i18n/time zones.
+4. Walk the edge-case list: empty data, very large data, malformed input, duplicates, concurrency, network loss (mobile apps using online data always get acceptance criteria for the offline screen/banner and automatic reconnect to the same screen), missing permission, expired session, i18n/time zones.
 5. Set flags `has_ui` and `security_sensitive` (auth, authorization, PII, payments, uploads, external input, third-party integrations).
 6. Open questions: only ask what changes behavior; each comes with a proposed default.
 

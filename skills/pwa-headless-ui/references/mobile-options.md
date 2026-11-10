@@ -21,16 +21,18 @@ The leader asks with `AskUserQuestion` (header `Mobile`, Flutter first with the 
 ### 1. Flutter
 - Flutter stable + Dart null safety; state with Riverpod (or the project's existing choice); routing with `go_router`; HTTP with `dio`; models with `freezed` + `json_serializable`.
 - Keep the same layering as the web app: `lib/ui/core/` widgets own behavior and accessibility (`Semantics`), `lib/templates/<name>/` supplies `ThemeData` + `ThemeExtension` tokens (colors, radii, spacing, motion), `lib/features/` import only core widgets. Swapping a template must not touch core or feature widgets.
+- Connectivity: `connectivity_plus` + reachability probe, offline banner/view and auto-reconnect per `connectivity.md` §8.
 - Native feel: platform-adaptive widgets (Cupertino page transitions on iOS, predictive back on Android), `HapticFeedback`, `ListView.builder`/slivers for long lists, safe areas via `SafeArea`/`MediaQuery.padding`.
 - Tests: `flutter test` for widget/unit tests, `integration_test` for flows. Verify with `flutter analyze`, `flutter test`, `flutter build apk --debug` (and `flutter build ios --no-codesign` on macOS).
 - API contracts come from the architect exactly as for the web client.
 
 ### 2. Capacitor
-Follow `capacitor.md`, `pwa.md` and `native-feel.md` — the existing PWA-first flow.
+Follow `capacitor.md`, `capacitor-native-feel.md`, `connectivity.md`, `pwa.md` and `native-feel.md` — the existing PWA-first flow.
 
 ### 3. Native
 - iOS: Swift + SwiftUI, Swift Concurrency, `URLSession`/`async` networking, MVVM with `@Observable`; tests with XCTest / Swift Testing. Android: Kotlin + Jetpack Compose, coroutines/Flow, Retrofit or Ktor, MVVM with `ViewModel`; tests with JUnit + Compose UI tests.
 - Design tokens from the UI spec map to a SwiftUI theme and a Compose `MaterialTheme`/custom theme so visuals stay swappable per platform.
+- Connectivity: `NWPathMonitor` / `ConnectivityManager.NetworkCallback` + reachability probe, offline banner/view and auto-reconnect per `connectivity.md` §9.
 - Keep feature parity tracked per task: each mobile task names both platforms or is split into an iOS task and an Android task.
 - Verify with `xcodebuild test` (macOS only) and `./gradlew test assembleDebug`.
 

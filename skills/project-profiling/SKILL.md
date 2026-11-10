@@ -23,7 +23,7 @@ The project profile is the team's shared source of truth: which test command the
    - Write every heavy command (full/module test runs, builds, e2e, audits, native builds) in the Commands table already wrapped and worker-capped, e.g. `.claude/team/run-heavy.sh npx vitest run --maxWorkers=8`. Worker flags: Vitest/Jest `--maxWorkers=N`, pytest-xdist `-n N`, ParaTest `--processes=N`, Go `-p N`, Gradle `--max-workers=N`, Maven `-T N`, `flutter test -j N`, Playwright `--workers=N`, `cargo test -j N`, `make -jN`. Docker-based runners: add `--cpus=N` or set it in the compose file used for tests. Record also the light command for a single test file.
 8. Write the profile using the template below.
 
-Empty repo: write `status: greenfield` and skip steps 3–6.
+Empty repo: write `status: greenfield`, `tooling_policy: latest-stable`, and skip steps 3–6. Existing projects get `tooling_policy: keep-existing`.
 
 ## Profile template
 
@@ -31,6 +31,7 @@ Empty repo: write `status: greenfield` and skip steps 3–6.
 ---
 updated: YYYY-MM-DD
 status: active | greenfield
+tooling_policy: latest-stable | keep-existing
 ui: none | web | mobile | web+mobile
 mobile_platform: none | flutter | capacitor | native | react-native
 max_agents: 4

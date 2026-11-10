@@ -47,6 +47,7 @@ Read `references/architecture.md` for the template contract, provider, core comp
 ## Mobile-first rules
 - Base styles target ~360px; enhance with `sm/md/lg/xl` breakpoints. Never write desktop-first then override down.
 - Touch targets ≥ 44px; no hover-only interactions; use `:focus-visible`.
+- Pagination never renders every page number: `UiPagination` shows first/last pages, the current page with neighbors and ellipses (`1 2 3 … 10 11 12`), fewer items on mobile — see `references/architecture.md` §4a.
 - Respect safe areas: `viewport-fit=cover` + `env(safe-area-inset-*)` padding in shells.
 - Use `dvh` units for full-height layouts (mobile browser bars).
 - Adaptive shells: `MobileShell` (bottom nav, top app bar) and `DesktopShell` (sidebar, wider content) chosen by a media-query composable/hook, both supplied by the template.
@@ -59,15 +60,26 @@ Interaction libraries are used only inside `src/ui/core/` and template shells �
 ## PWA
 Read `references/pwa.md`: `vite-plugin-pwa` setup, manifest with maskable icons, caching strategies per resource type, offline fallback, update prompt, installability checks.
 
+## List pages and pickers
+Every paginated resource list is **one** `<Resource>List` component (search, filters, server-side sort, truncated pagination, column chooser, all states) used both on the list page and inside a picker modal: a `UiPickerInput` opens the same list in a modal and selects one or many records by props. Column order: identifying always-visible columns (title/name/description) first, then data columns, then the actions icon, then the auto-increment ID last. Column visibility is saved in localStorage; filters, sort and page live only in the URL query params (history `replace`, never localStorage) on the page and only in memory in the picker. Read `references/list-page.md`.
+
+## Connectivity (mobile apps with online data)
+Every mobile app that uses online data — on any platform — listens for connectivity changes for its whole lifetime: offline banner or offline screen within ~2s of losing the internet, automatic reconnect with backoff, and a return to the same screen with refreshed data, replayed mutations and resumed realtime, without user action. Read `references/connectivity.md` (detection with a reachability probe, UI contract, reconnect sequence, Capacitor/PWA, Flutter and native implementations, tests).
+
 ## Mobile app platform
 Read `references/mobile-options.md` whenever a mobile app is involved. The user chooses between **Flutter (Recommended)**, **Capacitor wrapping the PWA** (the setup below) and **native apps** (Swift/Kotlin); an existing platform in the repo is kept. The reference covers when to ask, the trade-offs to present, and how to build the Flutter and native options.
 
 ## Capacitor (remote HTTPS URL)
 Read `references/capacitor.md` before touching native config. It covers `server.url` config, iOS App-Bound Domains for service workers, the offline/fallback page, platform detection, plugin use, and the risks to report to the user (Capacitor documents `server.url` as meant for live reload; App Store guideline 4.2 on thin web wrappers).
 
+To make the wrapped app feel native, also read `references/capacitor-native-feel.md`: splash held until content paints, fixed shell with inner scroll containers, keyboard handling without WebView resize, Android back button and iOS swipe back, transitions on older WebViews, a reduced-effects mode for low-end Android, native UI where the web is weak, and on-device profiling.
+
 ## Done criteria
 - Type-check, lint, tests, build all green (real output in notes).
 - No feature file imports a headless library or a template (lint rule passes).
 - Layout verified at mobile and desktop widths; all UI-spec states present.
-- Native-feel checks (when the task touches navigation, gestures, overlays or lists): only `transform`/`opacity` animated, gestures follow the finger and release into a spring, reduced-motion respected, every gesture has a button alternative, budget in `references/native-feel.md` §11 met or the gap reported.
-- PWA/Capacitor tasks: checks in the respective reference file pass.
+- Native-feel checks (when the task touches navigation, gestures, overlays or lists): only `transform`/`opacity` animated, gestures follow the finger and release into a spring, reduced-motion respected, every gesture has a button alternative, no re-renders during gestures (`references/native-feel.md` §12), budget in §11 met or the gap reported.
+- Resource lists follow `references/list-page.md` (one list component for page and picker, column order, column chooser with always-visible columns, filters in the URL query only, columns in localStorage); checks in its §9 pass.
+- Numbered pagination uses `UiPagination` with truncation (no full page list), current page in the URL.
+- Mobile apps with online data: checks in `references/connectivity.md` §10 pass.
+- PWA/Capacitor tasks: checks in the respective reference file pass (Capacitor: `capacitor.md` and `capacitor-native-feel.md` §10).

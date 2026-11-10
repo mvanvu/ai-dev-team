@@ -19,7 +19,7 @@ Test, lint and build results come from the task notes; do not rerun them. Missin
 5. **Tests** — critical logic has tests; tests assert behavior, not implementation; failure paths covered.
 6. **Maintainability** — follows repo conventions; no dead code, no needless abstraction or duplication of existing utilities.
    Frontend with headless architecture: features import only `@/ui/core`; core components hold no visual classes; templates hold no behavior; a template-only task changes nothing outside `src/templates/`. Any breach is `major` — it breaks template swapping.
-7. **Performance** — N+1 queries, unbounded loops/queries, missing pagination, heavy work on hot paths or the UI thread.
+7. **Performance** — N+1 queries, unbounded loops/queries, missing pagination, heavy work on hot paths or the UI thread. Frontend pagination that renders every page number (instead of the truncated `UiPagination` range) is a `minor` finding. A second list implementation for a picker (instead of reusing the resource's list component), or column order breaking the list rules (actions before ID, ID last, hideable title/name), is a `major` finding. Bulk actions that skip the single-row rules (row flags, confirmations, per-row checks, restore → inactive, purge only from the trash) are a `major` finding — see `ai-dev-team:technical-design` → `references/record-lifecycle.md`.
 8. **Security smell** — if seen, tag `→ security` (do not deep-dive; that's security-auditor's job).
 
 ## Finding format

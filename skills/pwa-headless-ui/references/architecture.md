@@ -19,6 +19,12 @@ src/
       UiButton.(vue|tsx)
       UiDialog.(vue|tsx)
       UiInput.(vue|tsx)
+      UiPagination.(vue|tsx)
+      UiDataList.(vue|tsx)   # list shell: filters, columns, selection, pagination, states (list-page.md)
+      UiPickerInput.(vue|tsx) # input → modal with a list, single or multiple select
+      useListQuery.ts       # filters/sort/page: URL query on pages (never localStorage), memory in pickers
+      useColumnVisibility.ts
+      pagination.ts       # paginationRange() — pure, framework-free (section 4a)
       index.ts            # public barrel
     template/
       contract.ts         # UiTemplate interface
@@ -198,6 +204,56 @@ export const UiButton = forwardRef<HTMLButtonElement, Props>(
 )
 ```
 
+## 4a. Pagination (`UiPagination`)
+
+Page numbers are never all rendered when the list is long. The control shows the first and last pages, the current page with its neighbors, and an ellipsis for each gap — e.g. `1 2 3 … 10 11 12`, `1 2 3 … 5 6 7 … 18 19 20`.
+
+```ts
+// src/ui/core/pagination.ts
+export type PageItem = number | 'ellipsis-start' | 'ellipsis-end'
+
+// Keeps the item count constant while the current page moves, so the control
+// never changes width and the next/previous buttons stay under the pointer.
+export function paginationRange(
+  page: number, count: number, boundaryCount = 3, siblingCount = 1,
+): PageItem[] {
+  const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i)
+  if (count <= 2 * boundaryCount + 2 * siblingCount + 3) return range(1, count)
+
+  const startPages = range(1, boundaryCount)
+  const endPages = range(count - boundaryCount + 1, count)
+  const siblingsStart = Math.max(
+    Math.min(page - siblingCount, count - boundaryCount - 2 * siblingCount - 1),
+    boundaryCount + 2,
+  )
+  const siblingsEnd = Math.min(
+    Math.max(page + siblingCount, boundaryCount + 2 * siblingCount + 2),
+    count - boundaryCount - 1,
+  )
+
+  return [
+    ...startPages,
+    // A gap of exactly one page shows that page instead of an ellipsis.
+    ...(siblingsStart > boundaryCount + 2 ? ['ellipsis-start' as const] : [boundaryCount + 1]),
+    ...range(siblingsStart, siblingsEnd),
+    ...(siblingsEnd < count - boundaryCount - 1 ? ['ellipsis-end' as const] : [count - boundaryCount]),
+    ...endPages,
+  ]
+}
+```
+
+| Breakpoint | `boundaryCount` | `siblingCount` | Max items | Example (page 6 of 20) |
+|---|---|---|---|---|
+| Desktop (`md+`) | 3 | 1 | 11 | `1 2 3 … 5 6 7 … 18 19 20` |
+| Mobile | 1 | 0 | 5 | `1 … 6 … 20` |
+
+- Defaults come from the template (`pagination: { boundaryCount, siblingCount, mobileBoundaryCount, mobileSiblingCount }` in `UiTemplate`) so a template can be denser or sparser; features pass only `page`, `pageCount` and `onPageChange`.
+- Markup: `<nav aria-label="Pagination">` with a list; the current page has `aria-current="page"`; previous/next buttons with labels, disabled at the ends; ellipses are non-interactive (`aria-hidden="true"`). Optionally, when `pageCount` > ~50, a "Go to page" input.
+- The current page lives in the URL (`?page=6`), so reload, share and back keep it; out-of-range values clamp to the last page.
+- Vue may render it with Reka UI's `Pagination` primitives (`PaginationRoot`, `PaginationList`, `PaginationEllipsis`) as long as the items come from `paginationRange()`; React renders the items directly (Radix and React Aria have no pagination primitive).
+- Unknown total (cursor pagination) → previous/next only, no page numbers. Mobile feeds prefer infinite scroll or "Load more" (`native-feel.md` §6); numbered pagination on mobile is for tables, search results and admin lists.
+- Tests: unit-test `paginationRange()` for count ≤ max items (no ellipsis), current at start, middle and end, a one-page gap (number, not ellipsis), and a constant item count while the page changes.
+
 ## 5. Template pack example
 
 ```css
@@ -275,7 +331,7 @@ export default [
     rules: {
       'no-restricted-imports': ['error', { patterns: [
         { group: ['reka-ui', 'radix-ui', '@radix-ui/*', 'react-aria-components'], message: 'Use @/ui/core components.' },
-        { group: ['motion', 'motion/*', 'motion-v', 'vaul', 'vaul-vue', 'sonner', 'vue-sonner', '@use-gesture/*', '@tanstack/vue-virtual', '@tanstack/react-virtual'], message: 'Interaction libraries are wrapped by @/ui/core components.' },
+        { group: ['motion', 'motion/*', 'motion-v', 'vaul', 'vaul-vue', 'sonner', 'vue-sonner', '@use-gesture/*', '@tanstack/vue-virtual', '@tanstack/react-virtual', '@tanstack/vue-table', '@tanstack/react-table'], message: 'Interaction libraries are wrapped by @/ui/core components.' },
         { group: ['@/templates/*', '**/templates/**'], message: 'Templates are selected via the provider only.' },
       ] }],
     },

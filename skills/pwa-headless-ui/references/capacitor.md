@@ -1,5 +1,7 @@
 # Capacitor wrapping the PWA's HTTPS URL
 
+For launch, scrolling, keyboard, back-button and performance tuning inside the WebView, also read `capacitor-native-feel.md`.
+
 ## Risks to report to the user (once, with mitigations)
 1. **Capacitor documents `server.url` as intended for live reload**, not production. It works, but it is outside the officially recommended path. Mitigation: keep a bundled offline/error page (`webDir` + `server.errorPath`), test on real devices each release.
 2. **App Store guideline 4.2 (minimum functionality)**: Apple may reject apps that are only a website in a wrapper. Mitigation: add native value — push notifications, share sheet, haptics, biometric login, deep links.
@@ -42,7 +44,7 @@ iOS `Info.plist` (App-Bound Domains, max 10):
 </array>
 ```
 
-Keep `native-shell/` tiny: `index.html` + `offline.html` with inline styles matching the default template tokens and a retry button.
+Keep `native-shell/` tiny: `index.html` + `offline.html` with inline styles matching the default template tokens and a retry button. `offline.html` reconnects by itself — listens for `online`, probes the PWA URL with backoff and returns to the last path (`connectivity.md` §7).
 
 ## Environments
 Generate `server.url` from an env var (`CAP_SERVER_URL`) so dev can point to a LAN dev server (`cleartext: true` only in dev) and release builds point to production. Never ship a release with `cleartext: true` or an http URL.
@@ -72,7 +74,8 @@ npx cap open ios | npx cap open android
 
 ## Checks before marking a Capacitor task done
 - `npx cap sync` succeeds; config contains no http URL and `cleartext: false` for release.
-- Airplane mode on device/emulator → `offline.html` appears, retry works.
+- Airplane mode on device/emulator → `offline.html` appears, retry works, and turning the network back on reloads the app at the last path without a tap.
 - iOS: service worker registers inside the app (Safari Web Inspector → Service Workers).
 - Plugin calls are guarded; web fallback works in a normal browser.
+- Checks in `capacitor-native-feel.md` §10 pass.
 - Native builds not runnable in this environment (no Xcode/SDK) → mark `not-run` with reason.
