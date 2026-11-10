@@ -14,7 +14,9 @@ description: "How the developer implements a task: read design/UI spec/threat mo
 1. **Red**: write a test for the first acceptance behavior; run it; confirm it fails for the right reason.
 2. **Green**: write the minimal code to pass.
 3. **Refactor**: clean up while green.
-4. Repeat until the task's done-criteria are covered, then run the related tests (the touched modules' suites and the fast guards) + lint + build from the profile. Do not run the whole test suite per task unless the leader asks or the change touches shared infrastructure; the full suite runs at feature sign-off.
+4. Repeat until the task's done-criteria are covered, then run once: the profile's `test (related)` command on the files you changed, the guard tests the profile maps to the areas you touched, lint / type-check, and the build if the task changes built output. That run is the task's evidence.
+5. Never run the whole test suite or every guard suite per task, unless the leader asks or the change touches shared infrastructure; the full suite runs once at feature sign-off.
+6. A test you did not touch, for code you did not change, fails: rerun that single file once. Still failing → write it in the notes as `not mine: <file> — <first error line>` and report it; do not rerun the suite to investigate, do not edit other tasks' files to make it pass. Concurrent edits by another agent and stale built output are the usual cause, and the leader resolves them.
 
 ## Running commands
 - Heavy commands (module/related test runs, builds, e2e, native builds) run through the profile's wrapped commands — `.claude/team/run-heavy.sh <cmd>` with the worker cap. The red/green loop on a single test file may run directly.
@@ -54,4 +56,4 @@ Where a test is impractical (pure styling, config), state why in the task notes 
 One row per rule ID of `BASE` and every assigned pack: `pass` with evidence another agent can open (test name, `file:line`, command output, artifact path), `n-a` with the reason, or `fail`. A `fail` or an unchecked rule means the task is not done — fix it or report `BLOCKED`. Rules with a script (`.claude/team/rule-checks.sh`, `.claude/team/overflow-check.mjs` — §9 of that file) are proven by the script's output. Format and rules: `ai-dev-team:dev-team` → `references/rule-packs.md` §6. The leader returns a `DONE` whose notes lack this table.
 
 ## Applying feedback
-Fix each listed finding; reply per finding `fixed` / `disagree: <reason>`; update the `## Rule compliance` rows the fix touches; rerun tests; report `DONE T{id}` again.
+Fix each listed finding; reply per finding `fixed` / `disagree: <reason>`; update the `## Rule compliance` rows the fix touches; rerun only the related tests of the files changed in this round (and rebuild once if built output changed); report `DONE T{id}` again.

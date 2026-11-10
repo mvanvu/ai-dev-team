@@ -9,6 +9,7 @@
 #   commits [base]          BASE-7    AI attribution in commit messages of base..HEAD (default: upstream, else last 20)
 #   prerelease              TOOL-2    pre-release versions in package.json / pubspec.yaml
 #   flutter-overflow <log>  COMPACT-6 "overflowed" in saved flutter test / run output
+#   ai-look [dir...]        REAL-2/4  placeholder copy (lorem ipsum, John Doe, Acme) and gradient text (candidates)
 #   all [base]              every check above except flutter-overflow
 # Exit: 0 no violation (or the check does not apply here), 1 violations found, 64 usage error.
 set -u
@@ -82,6 +83,20 @@ check_prerelease() {
   report TOOL-2 "$hits"
 }
 
+check_ai_look() {
+  local dirs=("$@")
+  if [ "${#dirs[@]}" -eq 0 ]; then mapfile -t dirs < <(source_dirs); fi
+  if [ "${#dirs[@]}" -eq 0 ]; then echo "REAL n-a: no src directory"; return 0; fi
+  local status=0 hits
+  hits=$(grep -rnEi "${SRC_EXT[@]}" --include='*.html' --include='*.json' --include='*.dart' "${SKIP_DIRS[@]}" \
+    "lorem ipsum|john doe|jane doe|acme (inc|corp)|example\.com" "${dirs[@]}" 2>/dev/null | grep -viE "\.(spec|test)\.|__tests__|/test/")
+  report REAL-2 "$hits" || status=1
+  hits=$(grep -rnE "${SRC_EXT[@]}" --include='*.css' --include='*.scss' "${SKIP_DIRS[@]}" \
+    "bg-clip-text[^\"']*text-transparent|text-transparent[^\"']*bg-clip-text|background-clip:[[:space:]]*text" "${dirs[@]}" 2>/dev/null)
+  report REAL-4 "$hits" || status=1
+  return "$status"
+}
+
 check_flutter_overflow() {
   local log="${1:-}"
   if [ -z "$log" ] || [ ! -f "$log" ]; then echo "usage: $0 flutter-overflow <log file>" >&2; return 64; fi
@@ -96,16 +111,18 @@ case "$check" in
   commits) check_commits "$@" ;;
   prerelease) check_prerelease ;;
   flutter-overflow) check_flutter_overflow "$@" ;;
+  ai-look) check_ai_look "$@" ;;
   all)
     status=0
     check_arch || status=1
     check_list_storage || status=1
     check_commits "$@" || status=1
     check_prerelease || status=1
+    check_ai_look || status=1
     exit "$status"
     ;;
   *)
-    sed -n '5,13p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '5,14p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

@@ -32,6 +32,8 @@ Paths are relative to the plugin's `skills/` directory. "Verified by" names the 
 | `LIST` | builds or changes a paginated resource list or a record picker | `pwa-headless-ui/references/list-page.md` | §9 | code-reviewer, qa-engineer |
 | `LIFE` | creates or changes a CRUD entity (active flag, trash, restore, purge, bulk actions) — backend and UI tasks alike | `technical-design/references/record-lifecycle.md` | §10 | code-reviewer, qa-engineer |
 | `QUERY` | reads or writes the database for a list, a detail with children, an export, a bulk action, a background job or a GraphQL resolver — or a client screen that loads data per row | `code-review-checklist/references/query-performance.md` | §4 | code-reviewer, qa-engineer |
+| `PTR` | builds or changes a phone screen that shows server data in a vertically scrolling list or feed (mobile web, PWA, Capacitor, Flutter, native) | `pwa-headless-ui/references/pull-to-refresh.md` | §8 | qa-engineer, code-reviewer |
+| `REAL` | builds or changes any user-facing screen, template pack or marketing page | `ui-ux-design/references/authentic-design.md` | §5 | ui-ux-designer |
 | `CONN` | touches a mobile app or installed PWA that uses online data | `pwa-headless-ui/references/connectivity.md` | §10 | qa-engineer |
 | `FEEL` | touches navigation, page transitions, gestures, sheets/overlays or long lists | `pwa-headless-ui/references/native-feel.md` | §11 | code-reviewer, qa-engineer |
 | `PWA` | touches the manifest, service worker, caching, offline fallback or update flow | `pwa-headless-ui/references/pwa.md` | Checks section | qa-engineer |
@@ -55,6 +57,7 @@ A check that names a tool or environment the task cannot use (a device, Xcode, a
 7. **Commits** — none unless the user asked; messages are English, imperative, without AI attribution.
 8. **Dependencies** — no new dependency without a stated reason (maintained, size/cost acceptable, no existing utility does it).
 9. **Security defaults** — input validated at the boundary, parameterized queries, an authorization check on every entry point, no secrets in code or logs.
+10. **Test scope** — per task and per fix round only the related tests of the changed files and the mapped guards ran (no whole-suite or all-guards runs); failures outside the task are reported as `not mine`, not chased with reruns.
 
 ## 4. `TOOL` — greenfield toolchain
 1. Installed versions equal the design's `## Toolchain` table; anything not in the table was looked up at install time, not recalled.
@@ -122,4 +125,6 @@ Rules a script can decide are decided by the script, not by reading. `repo-scout
 | `COMPACT-1`, `COMPACT-2`, `COMPACT-7` | `.claude/team/run-heavy.sh node .claude/team/overflow-check.mjs --shots _workspace/qa-artifacts <url>...` on the screens the task touched, loaded with worst-case content | implementer (when the app can run), qa-engineer |
 | `COMPACT-6` (Flutter) | `.claude/team/rule-checks.sh flutter-overflow <saved flutter test output>` | implementer, qa-engineer |
 
-`.claude/team/rule-checks.sh all [base]` runs the first four. A script that cannot run here (exit 2 from `overflow-check.mjs`: Playwright not installed) leaves the rule to the manual check in its reference file; say so in the evidence.
+| `REAL-2`, `REAL-4` | `.claude/team/rule-checks.sh ai-look` — hits are candidates (seed data in fixtures, a brief that asks for gradient text); confirm each | implementer, ui-ux-designer |
+
+`.claude/team/rule-checks.sh all [base]` runs every check except `flutter-overflow`. A script that cannot run here (exit 2 from `overflow-check.mjs`: Playwright not installed) leaves the rule to the manual check in its reference file; say so in the evidence.

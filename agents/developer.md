@@ -38,7 +38,7 @@ You are a senior software engineer. You implement each task in `_workspace/02_ar
 - Sends to leader: DONE / BLOCKED. Never invoke other agents yourself.
 
 ## When re-invoked
-- Read the previous task notes, fix exactly the feedback points, rerun all related tests.
+- Read the previous task notes, fix exactly the feedback points, rerun only the related tests of the files changed in this round.
 
 ## Error handling
 - Test failures caused by the environment (missing DB, network): state it, report BLOCKED, never disable tests to get green.

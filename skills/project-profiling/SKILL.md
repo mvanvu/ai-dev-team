@@ -21,6 +21,11 @@ The project profile is the team's shared source of truth: which test command the
    - Copy `references/run-heavy.sh` from this skill's directory to `.claude/team/run-heavy.sh` and make it executable. It runs one heavy command at a time machine-wide, at low CPU priority.
    - `heavy_workers` = max(2, CPU threads ÷ 4) (`nproc`, or `sysctl -n hw.ncpu` on macOS). `max_agents` = 4 unless the existing profile sets another value — keep the user's value on re-profiling.
    - Write every heavy command (full/module test runs, builds, e2e, audits, native builds) in the Commands table already wrapped and worker-capped, e.g. `.claude/team/run-heavy.sh npx vitest run --maxWorkers=8`. Worker flags: Vitest/Jest `--maxWorkers=N`, pytest-xdist `-n N`, ParaTest `--processes=N`, Go `-p N`, Gradle `--max-workers=N`, Maven `-T N`, `flutter test -j N`, Playwright `--workers=N`, `cargo test -j N`, `make -jN`. Docker-based runners: add `--cpus=N` or set it in the compose file used for tests. Record also the light command for a single test file.
+7a. **Per-task test scope** — record what an implementer runs per task, so it never defaults to the whole suite:
+   - `test (related)`: a command that takes the changed files and runs only the tests that import them — `vitest related --run <files>`, `jest --findRelatedTests <files>`, `pytest <test paths>`, PHPUnit / Go / Cargo with the test files of the touched module. Cap workers. Verify it on one file.
+   - `test (full)`: the whole suite, marked sign-off only. A "module" command that covers the whole app is the full suite, not a per-task command.
+   - `## Guard map`: which guard / architecture / lint-style tests to run for which changed paths (e.g. `*.vue` → the component-class guard; `app.css` → the stylesheet guard; language files → the parity test). Per task only the mapped guards run, never every guard suite.
+   - Whether builds write tracked files (bundles, hashed assets): record it under `## Environment issues` — such builds make parallel implementers on one tree collide.
 8. **Rule check scripts**: copy `references/rule-checks.sh` and `references/overflow-check.mjs` from this skill's directory to `.claude/team/` and make them executable. Implementers and QA run them as evidence for the rules a script can decide (`ai-dev-team:dev-team` → `references/rule-packs.md` §9).
 9. Write the profile using the template below.
 
@@ -47,11 +52,17 @@ heavy_workers: N
 ## Commands
 | Purpose | Command | Status |
 |---|---|---|
-| test (related/module, heavy) | .claude/team/run-heavy.sh ... | verified |
+| test (related, per task) | e.g. `npx vitest related --run --maxWorkers=N <changed files>` | verified |
 | test (single file, light) | ... | verified |
+| test (full, sign-off only, heavy) | .claude/team/run-heavy.sh ... | verified |
 | lint | ... | ... |
 | build | ... | ... |
 | security audit | ... | ... |
+
+## Guard map
+| Changed paths | Guard tests to run |
+|---|---|
+| ... | ... |
 
 ## Layout & key modules
 - `path/` — role
