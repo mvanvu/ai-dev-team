@@ -16,10 +16,20 @@ const VERDICT = { type: 'object', required: ['status', 'reason'], properties: {
 
 // Plugin agents are namespaced; the leader passes the prefix it sees in the agent list.
 const P = args.agentPrefix ?? 'ai-dev-team:'
-const AGENT = { correctness: `${P}code-reviewer`, security: `${P}security-auditor`, ui: `${P}ui-ux-designer` }
+// Every dimension is reviewed by the one reviewer agent type, loading the dimension's skill.
+const REVIEWER = `${P}reviewer`
 const SKILL = { correctness: `${P}code-review-checklist`, security: `${P}security-review-checklist`, ui: `${P}ui-ux-design (Design QA section)` }
 const SERIOUS = ['critical', 'high', 'blocker', 'major']
-const ctx = `Scope: ${args.scope}\nSpec: ${args.specPath}\nDesign: ${args.designPath}\nDo not run test suites, builds or audits: QA sign-off already ran the full suite. Run at most one specific test via .claude/team/run-heavy.sh to prove a finding.`
+const reviewOnly = args.mode === 'review-only'
+const ctx = [
+  `Scope: ${args.scope}`,
+  args.specPath ? `Spec: ${args.specPath}` : null,
+  args.designPath ? `Plan: ${args.designPath}` : null,
+  reviewOnly
+    ? 'No QC ran for this scope. Do not run test suites or builds; the security dimension may run the stack\'s dependency audit once via .claude/team/run-heavy.sh.'
+    : 'Per-task review and QC sign-off already covered each task and ran the full suite: focus on interactions across tasks and on anything per-task review could not see. Do not run test suites, builds or audits.',
+  'Run at most one specific test via .claude/team/run-heavy.sh to prove a finding.',
+].filter(Boolean).join('\n')
 
 // Shared cap on concurrent agents so the final review stays inside the resource budget.
 const LIMIT = Math.max(1, args.maxAgents ?? 4)
@@ -35,13 +45,13 @@ const results = await pipeline(
   args.dimensions,
   d => slot(() => agent(
     `Final ${d} review of the feature. Follow the ${SKILL[d]} skill.\n${ctx}\nReturn findings JSON only; empty array if none.`,
-    { agentType: AGENT[d], label: `review:${d}`, phase: 'Review', schema: FINDINGS }))
+    { agentType: REVIEWER, label: `review:${d}`, phase: 'Review', schema: FINDINGS }))
     .then(r => (r ? r.findings.map(f => ({ ...f, dimension: d })) : null)),
   findings => findings === null ? null : parallel(findings.map(f => () =>
     SERIOUS.includes(f.severity)
       ? slot(() => agent(
           `Adversarially verify this finding. Try to refute it by reading the code, callers, guards and tests. confirmed = reachable failure; refuted = prevented; uncertain = cannot decide.\n${JSON.stringify(f)}\n${ctx}`,
-          { agentType: AGENT[f.dimension], label: `verify:${f.file}`, phase: 'Verify', schema: VERDICT, effort: 'high' }))
+          { agentType: REVIEWER, label: `verify:${f.file}`, phase: 'Verify', schema: VERDICT, effort: 'high' }))
           .then(v => ({ ...f, verdict: v ?? { status: 'uncertain', reason: 'verifier failed' } }))
       : Promise.resolve({ ...f, verdict: { status: 'unverified', reason: 'minor severity' } })))
 )

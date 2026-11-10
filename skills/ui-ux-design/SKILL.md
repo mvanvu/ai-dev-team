@@ -1,6 +1,6 @@
 ---
 name: ui-ux-design
-description: "Produces a web/mobile UI spec: user flows, screen inventory, wireframes with all states, design tokens, component specs, responsive/platform rules and accessibility; plus design QA of implemented UI. Used by ui-ux-designer, or when asked to 'design screens', 'make a UI spec', 'design for mobile', or 'review the UI against the design'. Not for backend/API design (technical-design)."
+description: "Produces a web/mobile UI spec: user flows, screen inventory, wireframes with all states, design tokens, component specs, responsive/platform rules and accessibility; plus design QA of implemented UI. Used by the developer agent (UI design mode) and the reviewer agent (design QA), or when asked to 'design screens', 'make a UI spec', 'design for mobile', or 'review the UI against the design'. Not for backend/API design (technical-design)."
 ---
 
 # UI/UX design
@@ -32,7 +32,7 @@ Every screen must look designed for this product, not generated: real content sh
 7. **Real copy**: write plausible, specific content; placeholder copy makes a design feel templated.
 When `ui-ux-pro-max` is installed, use it for palette, font-pairing and stack data, then filter its suggestions through the steps above.
 
-## Template: `_workspace/02_designer_ui-spec.md`
+## Template: `_workspace/02_ui-spec.md`
 
 ```markdown
 # UI Spec: <feature>
@@ -54,5 +54,5 @@ platforms: web | ios | android
 ```
 
 ## Design QA
-Compare the implemented UI to the spec (read code and the contact sheets of this build — every width × theme per screen — from the implementer and QA; capture yourself only a state no sheet shows, through `.claude/team/run-heavy.sh` — `ai-dev-team:dev-team` → `references/resource-budget.md` §1). Report each deviation as `blocker` (missing state, broken flow, a11y failure), `major` (wrong token/layout at a breakpoint; on phones: text overflowing or clipped without ellipsis, horizontal page scroll, wasted space such as stacked buttons that fit one row or dead space beside/under a row icon — `ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7), `minor` (spacing/polish), with `file:line`.
-When the task's `Rules` include a pack that names `ui-ux-designer` in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 (`COMPACT`), also return the `## Rule check T{id}` table: one row per rule ID, `pass | fail | n-o` with evidence (`file:line` or screenshot); a `fail` is a deviation with the rule ID in its title.
+Compare the implemented UI to the spec (read code and the contact sheets of this build — every width × theme per screen — from the developer and qc; capture yourself only a state no sheet shows, through `.claude/team/run-heavy.sh` — `ai-dev-team:dev-team` → `references/resource-budget.md` §1). Report each deviation as `blocker` (missing state, broken flow, a11y failure), `major` (wrong token/layout at a breakpoint; on phones: text overflowing or clipped without ellipsis, horizontal page scroll, wasted space such as stacked buttons that fit one row or dead space beside/under a row icon — `ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7), `minor` (spacing/polish), with `file:line`.
+When the task's `Rules` include a pack that names `reviewer` for design QA in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 (`COMPACT`, `REAL`, `SWEEP`), also return the `## Rule check T{id}` table: one row per rule ID, `pass | fail | n-o` with evidence (`file:line` or screenshot); a `fail` is a deviation with the rule ID in its title.

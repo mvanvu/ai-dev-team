@@ -2,7 +2,7 @@
 
 Use for any acceptance criterion that is only observable in a browser: UI flows, screen states, responsive layout, PWA behavior (install, offline, update prompt), console errors, network calls from the frontend.
 
-The engine order favors the lightest browser that can prove the criterion, so QA does not load the machine with a full desktop Chrome when a headless one is enough.
+The engine order favors the lightest browser that can prove the criterion, so qc does not load the machine with a full desktop Chrome when a headless one is enough.
 
 ## Contents
 1. Engine selection & connection
@@ -15,7 +15,7 @@ The engine order favors the lightest browser that can prove the criterion, so QA
 
 ## 1. Engine selection & connection
 
-Classify each browser criterion first, then pick the engine. Record the engine used per criterion in the QA report.
+Classify each browser criterion first, then pick the engine. Record the engine used per criterion in the QC report.
 
 | Criterion type | Examples | Engine order |
 |---|---|---|
@@ -38,7 +38,7 @@ Lightpanda is a headless browser without a graphical rendering engine: it runs J
 `chromium-headless-shell` is Chromium's rendering engine without the browser UI, extensions or profile: real layout, screenshots, service workers and DevTools protocol at a much lower cost than desktop Chrome. Playwright uses it for `headless: true` launches.
 1. Runner, in this order:
    - The project's Playwright e2e setup (project profile) — add or run specs there for the task's criteria.
-   - Otherwise a QA script outside the project manifest: set up once in `_workspace/qa-tools/` (`npm init -y && npm i -D playwright@latest`), install only the shell `npx playwright install chromium --only-shell`, and keep scripts in `_workspace/qa-artifacts/`. Never add dependencies to the project for QA scripts.
+   - Otherwise a QC script outside the project manifest: set up once in `_workspace/qa-tools/` (`npm init -y && npm i -D playwright@latest`), install only the shell `npx playwright install chromium --only-shell`, and keep scripts in `_workspace/qa-artifacts/`. Never add dependencies to the project for QA scripts.
 2. Launch `chromium.launch({ headless: true })` (do not set a `channel`, which would switch to full Chrome). Use a `browser.newContext()` per scenario with the mobile device descriptor (`devices['Pixel 7']`, `devices['iPhone 15']`) for mobile runs.
 3. **WebKit** for criteria that depend on iOS Safari / WKWebView behavior (PWA on iOS, Capacitor iOS, safe areas, iOS-only CSS): `npx playwright install webkit`. If WebKit's system libraries are missing (install needs root via `--with-deps`), report those criteria `not-run` with the command the user must run; do not use `sudo`.
 4. Run scripts and e2e through `.claude/team/run-heavy.sh` (they launch a browser process); close the browser in a `finally` block.
@@ -62,7 +62,7 @@ Uses the user's real desktop Chrome, so it is the heaviest option and is shared 
 
 ## 2. Session rules
 - Browser budget: `ai-dev-team:dev-team` → `references/resource-budget.md` (`COST`). P and M runs go through `run-heavy.sh` with one launch covering all URLs and widths; only Lightpanda runs may overlap with other agents. Stop every process you started.
-- Claude in Chrome (A) is shared with the user: only one QA agent drives it at a time (the leader serializes it); never reuse tab IDs from another session; create your own tab with `tabs_create_mcp` and close it when done; only touch the user's existing tabs if the leader says the user asked for it.
+- Claude in Chrome (A) is shared with the user: only one agent drives it at a time (the leader serializes it); never reuse tab IDs from another session; create your own tab with `tabs_create_mcp` and close it when done; only touch the user's existing tabs if the leader says the user asked for it.
 - In A, do not trigger `alert` / `confirm` / `prompt` dialogs — they freeze the extension. Before clicking anything that may open one, check with `javascript_tool`; if it uses a native dialog, test that path on P instead. If a dialog does open, stop and report that the user must dismiss it.
 - Filter console output for `error|warn|Uncaught` instead of dumping everything.
 - If a tool fails 2–3 times in a row or the page does not respond, stop and report instead of looping.
@@ -94,7 +94,7 @@ At both mobile sizes also run the compact-layout checks (`ai-dev-team:pwa-headle
 - Installability: verified on A via Chrome's install UI, or recorded as `manual` if not automatable.
 
 ## 6. Evidence & reporting
-Add to the QA report per criterion: engine used (L/P-chromium/P-webkit/M/A, plus the confirming engine when an L failure was re-run), viewport/device, steps, observed result, artifact path (video/screenshot/GIF), console/network findings. Browser defects use the standard defect format with the artifact as evidence.
+Add to the QC report per criterion: engine used (L/P-chromium/P-webkit/M/A, plus the confirming engine when an L failure was re-run), viewport/device, steps, observed result, artifact path (video/screenshot/GIF), console/network findings. Browser defects use the standard defect format with the artifact as evidence.
 
 ## 7. Failure handling
 | Situation | Action |
@@ -103,7 +103,7 @@ Add to the QA report per criterion: engine used (L/P-chromium/P-webkit/M/A, plus
 | Playwright browser cannot be installed (no network, no Node) | Use M, then A; note it in the report |
 | WebKit system libraries missing | Report the WebKit criteria `not-run` with the install command for the user |
 | Claude in Chrome extension not connected after self-connect | Use the next engine in the criterion's order, or `not-tested` for interactive-only criteria |
-| Page doesn't load / dev server fails | Capture the server log, report `QA_BLOCKED` |
+| Page doesn't load / dev server fails | Capture the server log, report `QC_BLOCKED` |
 | Native dialog froze Chrome (A) | Stop; report that the user must dismiss it in Chrome |
 | Flaky step (timing) | Wait for a concrete condition (text/element) and retry once; then report as flaky |
 | Waiting for a queued heavy command | Run `run-heavy.sh` in the foreground — it queues by itself; no `sleep` or `pgrep` loops (`COST-4`) |

@@ -107,12 +107,8 @@ interface ResourcePickerProps<Row> {
 
 ## 6a. Row actions and bulk actions
 
-Row actions (the `⋮` menu), the active switch and the bulk bar follow `ai-dev-team:technical-design` → `references/record-lifecycle.md` — the same lifecycle rules for one row and for many:
-- live view: Activate · Deactivate · Move to trash; trash view: Restore · Delete permanently;
-- every action is shown/enabled only from the permission keys the server returns (for the user and per row) — no permission names hard-coded in components; bulk buttons show applicable counts ("Move to trash (3/5)") and are disabled at 0;
-- identical confirmations: short question for Move to trash, warning for Delete permanently, none for Activate/Deactivate/Restore;
-- bulk runs the single-row routes a few at a time (or a designed batch endpoint with per-row checks), reports succeeded/failed in one toast, and clears the selection after every action and on paging/filtering;
-- `UiDataList` provides the selection, the bulk bar shell and a `useBulkActions()` runner (concurrency, summary); the page supplies the actions.
+Row actions (the `⋮` menu), the active switch and the bulk bar follow `ai-dev-team:technical-design` → `references/record-lifecycle.md` (§2–§9: which actions appear where — Activate/Deactivate is the switch, never a row-menu item — permissions returned by the server, confirmations and undo, batch endpoint, partial failure, selection clearing). This file does not restate them.
+- `UiDataList` provides the selection, the bulk bar shell and a `useBulkActions()` runner (one batch request, per-row result summary; the per-row fallback of record-lifecycle §9 when no batch endpoint exists); the page supplies the actions.
 
 ## 7. Screen states and mobile layout
 
@@ -120,7 +116,7 @@ Row actions (the `⋮` menu), the active switch and the bulk bar follow `ai-dev-
 - Below `md` the table becomes a card list: the `title` column as the heading, `subtitle` under it, `meta` columns as small key–value lines, actions as a `⋮` button at the card's top right, ID in the meta line. The column chooser applies to the card fields.
 - Wide tables scroll horizontally inside the list container with the identifying column sticky on the left; the page itself never scrolls sideways.
 
-## 8. API contract (architect)
+## 8. API contract (plan)
 
 Every list endpoint used by a list component provides: `limit` + `offset` (or `page` + `pageSize`) with a server-enforced maximum, `search`, `order` restricted to an allowlist of fields, the resource's filters, `ids` for resolving picker labels, and a response `{ items, total }`. The server returns the permission keys that apply — the user's permissions for the resource and, per item, the actions allowed on it — in the project's own naming, so the frontend does not guess.
 

@@ -11,7 +11,7 @@
     {
       "name": "ai-dev-team",
       "source": "./",
-      "description": "AI software development team: spec \u2192 design \u2192 build/review/QA \u2192 verified final review, with a PWA/Capacitor frontend specialist."
+      "description": "AI software development team: profile \u2192 spec \u2192 plan \u2192 build/review/QC \u2192 verified final review, with developer, reviewer and qc agents."
     }
   ]
 }

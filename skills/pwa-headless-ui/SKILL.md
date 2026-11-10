@@ -1,12 +1,15 @@
 ---
 name: pwa-headless-ui
-description: "How to build a mobile-first PWA in Vue 3 or React + TypeScript on a headless core-component architecture with swappable template packs (Reka UI / Radix UI / React Aria), PWA setup (manifest, service worker, offline, updates), and the mobile app platform choice — Flutter (recommended), Capacitor wrapping the PWA's HTTPS URL, or native Swift/Kotlin. Used by pwa-frontend-engineer, or when asked to add a core component, create/switch a UI template or theme, set up the PWA, build a mobile app, or configure Capacitor. Not for backend work (implementation) or visual design specs (ui-ux-design)."
+description: "How to build a mobile-first PWA in Vue 3 or React + TypeScript on a headless core-component architecture with swappable template packs (Reka UI / Radix UI / React Aria), PWA setup (manifest, service worker, offline, updates), and the mobile app platform choice — Flutter (recommended), Capacitor wrapping the PWA's HTTPS URL, or native Swift/Kotlin. Used by the developer agent for web frontend, PWA and mobile tasks, or when asked to add a core component, create/switch a UI template or theme, set up the PWA, build a mobile app, or configure Capacitor. Not for backend work (implementation) or visual design specs (ui-ux-design)."
 ---
 
 # PWA + headless UI + Capacitor
 
+## When this applies
+The three-layer architecture below is required for new Vue/React frontends and for projects whose profile records `frontend_arch: headless-core`. An existing frontend on another architecture or framework (Angular, Svelte, server-rendered templates, a component kit) keeps its own conventions; the cross-platform rules here (compact layout, connectivity, pull to refresh, native feel, lists, PWA, mobile platform choice) still apply where their rule packs are assigned.
+
 ## Goal of the architecture
-One codebase → responsive PWA (mobile-first, desktop-ready) → native apps via Capacitor. The look is a **replaceable template pack**: changing or adding a template must not touch any core or feature component.
+One codebase → responsive PWA (mobile-first, desktop-ready) → a mobile app on the platform the user chose (Flutter, Capacitor wrapping the PWA, or native — `references/mobile-options.md`). The look is a **replaceable template pack**: changing or adding a template must not touch any core or feature component.
 
 ## The three layers
 

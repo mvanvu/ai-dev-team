@@ -38,7 +38,7 @@ A query-count test is the evidence: run the code path with 2 rows and with 20 ro
 ## 4. Checks
 1. No query, ORM call or repository call inside a loop, iterator callback, template loop or per-item serializer / resolver in the changed code.
 2. Every relation and aggregate the response uses is loaded by eager loading, a keyed batch or a grouped query — no lazy load during iteration.
-3. Bulk actions, imports and background jobs write with set-based statements (chunked, in a transaction); per-row rules are evaluated on rows loaded in one query.
+3. Bulk actions, imports and background jobs write with set-based statements (chunked, in a transaction); per-row rules are evaluated on rows loaded in one query. Only exception: a UI bulk action on ≤ 20 selected rows may call the single-row routes per row while no batch endpoint exists yet (`ai-dev-team:technical-design` → `references/record-lifecycle.md` §9).
 4. Each list, detail-with-children, export and bulk code path the task adds or changes has a query-count test proving the count does not grow with the row count (2 rows vs 20 rows, or an exact number).
-5. Clients make a fixed number of requests per screen: no request per row, no query hook inside a row component, no sequential await loop where a batch endpoint exists.
+5. Clients make a fixed number of requests per screen: no request per row, no query hook inside a row component, no sequential await loop where a batch endpoint exists. Same single exception as check 3: a bulk action on ≤ 20 selected rows with no batch endpoint yet.
 6. List queries are paginated with a server maximum, select only the needed columns, and their filter, sort and foreign-key columns are indexed (migration in the same task when the index is missing).

@@ -21,13 +21,13 @@ Applies below the `md` breakpoint (and on every phone-sized app screen). Desktop
 - Label + short value go on one line (label left, value right) instead of two stacked lines; stack only when the value is long or editable multi-line.
 - Section headers put their action ("See all", "Edit", "+ Add") on the same line as the title, not on a line below it.
 - No decoration that only occupies space: oversized illustrations on screens that have content, repeated titles (app bar title + the same page heading), empty card headers, dividers plus margins doing the same job.
-- Chrome stays small: one app bar row (≤ 56px), bottom nav ≤ 64px plus the safe area; secondary toolbars collapse on scroll or move into a menu or sheet.
+- Chrome stays small: one app bar row and a bottom nav at the platform's default height or less (e.g. Material 3 top app bar 64dp, navigation bar 80dp; iOS navigation bar 44pt, tab bar 49pt) plus the safe area; secondary toolbars collapse on scroll or move into a menu or sheet.
 - Space is never saved by shrinking touch targets below 44px / 48dp, body text below 14px (inputs stay 16px to avoid iOS zoom), or contrast.
 
 ## 2. Buttons and actions
 - Two adjacent buttons share one row when both labels fit on one line: `grid grid-cols-2 gap-2` (equal width) or `flex gap-2` with the primary `flex-1`. Typical pairs: Cancel / Save, Back / Next, Decline / Accept, Reset / Apply.
 - Stack them full-width only when a label would wrap or truncate at 360px in the longest supported locale. Decide with the real translated strings, not the English ones.
-- Three or more actions: one primary button plus the rest in an overflow menu or sheet, or icon buttons with `aria-label` in one row. Never a column of three full-width buttons.
+- Three or more actions: one primary button plus the rest in an overflow menu or sheet, or icon buttons with `aria-label` in one row. Never a column of three full-width buttons — except a list of equal alternatives where each is the primary choice for some users: sign-in / auth providers ("Continue with Google / Apple / email") and onboarding choices.
 - A lone secondary or text action sits inline with related content (end of the row, in the section header) rather than on its own full-width line.
 - Sticky bottom action bars hold a single row; they include the safe-area inset once.
 - Filter chips, tabs and segmented controls stay on one horizontally scrollable row instead of wrapping to several lines.

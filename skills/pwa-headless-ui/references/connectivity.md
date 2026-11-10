@@ -40,7 +40,7 @@ OS signals say a network interface is up, not that the internet works (captive p
 - **Offline screen**: when the screen has nothing to show (first load, uncached route, online-only feature such as payment or live chat), render the designed offline screen in place of the content: illustration/icon, message, **Retry** button, and a visible "Reconnecting…" indicator while probes run. It is a state of the current route, not a navigation, so back history stays intact and the route is restored automatically on reconnect.
 - Online-only actions (submit payment, upload) are disabled with an explanation, or queued when the design marks them as queueable.
 - Announce changes to screen readers (`aria-live="polite"` / platform equivalents).
-- `ui-ux-designer` specifies these as the `offline` and `reconnecting` states of each screen.
+- The UI spec gives every screen these `offline` and `reconnecting` states.
 
 ## 4. Reconnect sequence
 

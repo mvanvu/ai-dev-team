@@ -29,7 +29,7 @@ Goal: the PWA should feel like a native app on a phone — instant feedback on t
 | Data tables (column visibility, selection, manual sort) | `@tanstack/vue-table` (inside `UiDataList`) | `@tanstack/react-table` (inside `UiDataList`) |
 | Server state, optimistic UI, cache | `@tanstack/vue-query` | `@tanstack/react-query` |
 | Persist query cache (instant offline launch) | `@tanstack/query-persist-client-core` + `@tanstack/query-async-storage-persister` + `idb-keyval` | `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister` + `idb-keyval` |
-| Haptics | `@capacitor/haptics` (native app), `navigator.vibrate` fallback (Android web only) | same |
+| Haptics | `@capacitor/haptics` (native shell only; no-op on the web) | same |
 | Icons & iOS splash screens | `@vite-pwa/assets-generator` | same |
 
 Before adding a library, check it is maintained (recent releases, open issue activity) and its bundle cost. As of 2026-11, `vaul`, `vaul-vue` and `@use-gesture/react` have had no release for over a year, so the defaults above build sheets and gestures on Motion instead; adopt those libraries only after re-checking their status. Do **not** add: full UI kits that impose their own look (they break template swapping), or scroll-hijacking libraries (e.g. smooth-scroll emulators) — native momentum scrolling on touch devices is already the best.
@@ -106,7 +106,7 @@ router.afterEach(async () => {
 ## 7. Perceived performance
 
 - **Instant launch**: persist the query cache to IndexedDB; on start, render cached data immediately and revalidate in the background (stale-while-revalidate).
-- **Optimistic updates** for user actions (like, toggle, reorder, delete with undo toast) — the UI responds in the same frame as the tap.
+- **Optimistic updates** for user actions (like, toggle, reorder, move to trash with an undo toast) — the UI responds in the same frame as the tap. Which actions confirm and which offer Undo: `ai-dev-team:technical-design` → `references/record-lifecycle.md` §2.
 - **Skeletons** matching final layout (no spinners for content areas); reserve space for images (`aspect-ratio`, width/height) to prevent layout shift.
 - **Prefetch** the next likely route's code and data on link visibility or touchstart.
 - Images: responsive `srcset`, `loading="lazy"` below the fold, `decoding="async"`, modern formats.
@@ -115,8 +115,11 @@ router.afterEach(async () => {
 
 ```css
 html { -webkit-tap-highlight-color: transparent; text-size-adjust: 100%; }
-body { overscroll-behavior-y: none; }               /* no rubber-band bounce of the whole app shell */
-button, a, [role='button'] { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+/* Installed PWA and native shell only — an ordinary browser tab keeps the browser's own pull to refresh (pull-to-refresh.md §4). */
+@media (display-mode: standalone) { html, body { overscroll-behavior-y: none; } }
+html[data-shell='native'], html[data-shell='native'] body { overscroll-behavior-y: none; }  /* set by the platform helper in Capacitor */
+button, a, [role='button'] { touch-action: manipulation; }
+button, [role='button'], [role='tab'], nav a { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }  /* interactive chrome only */
 :where(button, [role='button']):active { transform: scale(0.97); transition: transform var(--motion-press, 80ms) ease-out; }
 input, textarea, select { font-size: max(16px, 1rem); }  /* prevents iOS zoom on focus */
 .app-shell { min-height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
@@ -128,7 +131,7 @@ input, textarea, select { font-size: max(16px, 1rem); }  /* prevents iOS zoom on
 ## 9. Device APIs & haptics
 
 Wrap each in `src/native/` with feature detection and a no-op fallback:
-- `haptics.impact('light' | 'medium')`, `haptics.selection()` → `@capacitor/haptics` when native, `navigator.vibrate(10)` on Android web, no-op otherwise. Use on: toggle, snap, long-press trigger, pull-to-refresh threshold, destructive confirm.
+- `haptics.impact('light' | 'medium')`, `haptics.selection()` → `@capacitor/haptics` in the native shell, no-op on the web (installed PWA included). Use on: toggle, snap, long-press trigger, pull-to-refresh threshold, destructive confirm.
 - Web Share (`navigator.share`) / `@capacitor/share`.
 - Badging API (`navigator.setAppBadge`) for unread counts.
 - Screen Wake Lock for scanning/reading flows.
@@ -151,9 +154,14 @@ Templates also expose the durations/easings as CSS variables (`--motion-fast`, `
 ## 11. Performance budget & verification
 
 1. Animate only `transform` and `opacity`; never animate layout properties (`top`, `height`, `width`) on mobile.
-2. Targets on a mid-range Android device: INP < 200ms, CLS < 0.1, LCP < 2.5s, no dropped frames during transitions in the DevTools Performance panel (CPU throttling 4x).
+2. Targets on a mid-range Android device: INP < 200ms, CLS < 0.1, LCP < 2.5s, no dropped frames during transitions in the DevTools Performance panel (CPU throttling 4x). The device part is `n-a` with the reason when no real device is available; the throttled DevTools run still applies.
 3. Initial JS for the first route ≤ ~170KB gzipped; lazy-load routes and heavy libraries (charts, editors).
-4. Verify on real devices (iOS Safari standalone + Android Chrome installed PWA + Capacitor builds): gestures don't conflict with system gestures, keyboard doesn't cover focused inputs, safe areas correct in both orientations, reduced-motion respected.
+4. Verify on real devices (iOS Safari standalone + Android Chrome installed PWA + Capacitor builds): gestures don't conflict with system gestures, keyboard doesn't cover focused inputs, safe areas correct in both orientations, reduced-motion respected. `n-a` with the reason when no real device is available.
+5. Route transitions are direction-aware (push, back, tab switch per §3) and become an instant switch when unsupported or under `prefers-reduced-motion: reduce`.
+6. Going back restores the previous page's scroll position and state without a refetch flash.
+7. Drag gestures follow the finger 1:1 through `transform` and hand off to a spring with the release velocity on release.
+8. Every gesture has a non-gesture alternative (button or menu item) reachable by keyboard and screen reader.
+9. Every custom gesture surface sets `touch-action` for its axis (e.g. `pan-y` on horizontally swipeable rows), so native scrolling still works.
 
 ## 12. Rendering performance in Vue / React
 

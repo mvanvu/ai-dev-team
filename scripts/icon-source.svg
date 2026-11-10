@@ -2,11 +2,16 @@
 <defs>
 <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22305A"/><stop offset="1" stop-color="#0D1428"/></linearGradient>
 <radialGradient id="hub" cx="0.38" cy="0.35" r="0.75"><stop offset="0" stop-color="#FFD27A"/><stop offset="1" stop-color="#F2A516"/></radialGradient>
-<radialGradient id="node" cx="0.38" cy="0.35" r="0.75"><stop offset="0" stop-color="#8FF5E4"/><stop offset="1" stop-color="#2CC3AA"/></radialGradient>
+<radialGradient id="dev" cx="0.38" cy="0.35" r="0.75"><stop offset="0" stop-color="#8FF5E4"/><stop offset="1" stop-color="#2CC3AA"/></radialGradient>
+<radialGradient id="rev" cx="0.38" cy="0.35" r="0.75"><stop offset="0" stop-color="#B9C8FF"/><stop offset="1" stop-color="#6C83F0"/></radialGradient>
+<radialGradient id="qc" cx="0.38" cy="0.35" r="0.75"><stop offset="0" stop-color="#FFB3C7"/><stop offset="1" stop-color="#F0607F"/></radialGradient>
 </defs>
+<!-- Leader (gold hub) and the three agents: developer (top), reviewer (bottom right), qc (bottom left). -->
 <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
-<g stroke="#9FB3E8" stroke-opacity="0.45" stroke-width="22" stroke-linecap="round"><line x1="512" y1="512" x2="512.0" y2="212.0"/><line x1="512" y1="512" x2="724.1" y2="299.9"/><line x1="512" y1="512" x2="812.0" y2="512.0"/><line x1="512" y1="512" x2="724.1" y2="724.1"/><line x1="512" y1="512" x2="512.0" y2="812.0"/><line x1="512" y1="512" x2="299.9" y2="724.1"/><line x1="512" y1="512" x2="212.0" y2="512.0"/><line x1="512" y1="512" x2="299.9" y2="299.9"/></g>
-<g fill="url(#node)"><circle cx="512.0" cy="212.0" r="64"/><circle cx="724.1" cy="299.9" r="64"/><circle cx="812.0" cy="512.0" r="64"/><circle cx="724.1" cy="724.1" r="64"/><circle cx="512.0" cy="812.0" r="64"/><circle cx="299.9" cy="724.1" r="64"/><circle cx="212.0" cy="512.0" r="64"/><circle cx="299.9" cy="299.9" r="64"/></g>
-<circle cx="512" cy="512" r="128" fill="#0D1428" fill-opacity="0.55"/>
-<circle cx="512" cy="512" r="112" fill="url(#hub)"/>
+<g stroke="#9FB3E8" stroke-opacity="0.45" stroke-width="28" stroke-linecap="round"><line x1="512" y1="532" x2="512" y2="222"/><line x1="512" y1="532" x2="780.5" y2="687"/><line x1="512" y1="532" x2="243.5" y2="687"/></g>
+<circle cx="512" cy="222" r="112" fill="url(#dev)"/>
+<circle cx="780.5" cy="687" r="112" fill="url(#rev)"/>
+<circle cx="243.5" cy="687" r="112" fill="url(#qc)"/>
+<circle cx="512" cy="532" r="136" fill="#0D1428" fill-opacity="0.55"/>
+<circle cx="512" cy="532" r="120" fill="url(#hub)"/>
 </svg>
