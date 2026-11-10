@@ -12,7 +12,7 @@ A Claude Code plugin that adds an 8-agent software team and an orchestrator skil
 | `developer` | opus | Backend / non-UI implementation with TDD |
 | `pwa-frontend-engineer` | opus | Vue 3 / React TS PWA, headless core components + template packs; mobile app via Flutter (recommended), Capacitor or native |
 | `code-reviewer` | opus | Read-only code review |
-| `security-auditor` | opus | Threat modeling, OWASP / MASVS review, dependency audit (read-only) |
+| `security-auditor` | opus | Threat modeling, OWASP / MASVS review, dependency audit, full codebase audit (read-only) |
 | `qa-engineer` | sonnet | Runs tests, checks acceptance criteria and cross-module contracts; browser checks on the lightest engine that fits — Lightpanda (headless), Playwright Chromium headless shell / WebKit (visual, PWA), Claude in Chrome (interactive, last fallback) |
 
 All agents and skills are namespaced by the plugin, e.g. `ai-dev-team:developer`, `ai-dev-team:dev-team`.
@@ -45,6 +45,7 @@ Describe the work in a project. The `ai-dev-team:dev-team` skill triggers on req
 The orchestrator writes to the target project:
 - `.claude/team/project-profile.md`: detected stack, verified commands and the resource budget, kept across runs.
 - `.claude/team/run-heavy.sh`: wrapper that runs heavy commands (tests, builds, audits) one at a time at low CPU priority.
+- `.claude/team/rule-checks.sh` and `.claude/team/overflow-check.mjs`: scripts that decide the rules a machine can check (forbidden imports in feature code, list filters in web storage, AI attribution in commits, pre-release dependencies, text overflow on phone viewports).
 - `_workspace/`: specs, designs, task board, review and QA reports. Add `_workspace/` and `_workspace_*/` to the project's `.gitignore`.
 
 The final review phase uses the Workflow tool. Invoking the `dev-team` skill counts as consent; it stays small (≤ 3 reviewers + verifiers) unless you ask for a thorough review.
@@ -60,30 +61,36 @@ Reviewers read the implementer's test output instead of rerunning it, per-task Q
 ## Conventions
 
 - All files the team writes (code, comments, specs, commit messages) are in English. Replies to the user follow the user's language.
+- Phone screens (mobile web and app) waste no space and never overflow: adjacent buttons and short fields share a row when they fit, icon/text rows leave no dead space, every text element has a truncate / clamp / wrap rule checked with worst-case strings (`skills/pwa-headless-ui/references/compact-layout.md`).
+- Query count never grows with row count: no N+1 queries or per-row requests, proven by query-count tests (`skills/code-review-checklist/references/query-performance.md`).
+- Rules are enforced per task: the task board lists the rule packs each task must follow, the implementer reports one row of evidence per rule, reviewers and QA re-check them, and the leader only closes a task when every rule is confirmed (`skills/dev-team/references/rule-packs.md`).
 - No commits unless you ask; commit messages are imperative English with no AI attribution.
 
-## Companion plugins and skills (installed automatically)
+## Optional companions
 
-| Companion | Used by | How it gets installed |
+The plugin installs nothing besides itself. When one of these is already installed in the session, the agent uses it; when it is not, the agent works from the plugin's own skills.
+
+| Companion | Used by | For |
 |---|---|---|
-| `superpowers` (systematic debugging) | developer | SessionStart hook: `claude plugin install superpowers@claude-plugins-official`, skipped when superpowers is already installed from any marketplace |
-| `ui-ux-pro-max` | ui-ux-designer | SessionStart hook: adds marketplace `nextlevelbuilder/ui-ux-pro-max-skill` and installs `ui-ux-pro-max@ui-ux-pro-max-skill` |
-| `security-audit` | security-auditor | SessionStart hook: `npx skills add cloudflare/security-audit-skill -g -a claude-code -s security-audit -y` |
+| `superpowers` | developer | `systematic-debugging` on hard bugs |
+| `ui-ux-pro-max` | ui-ux-designer | palettes, font pairings, stack-specific UX data |
 
-The hook only acts when an item is missing (as a plugin or as a skill in `~/.claude/skills` / `.claude/skills`), installs in the background without blocking the session, and the item is available from the next session. Failed attempts are retried after 24h; the log is at `~/.claude/ai-dev-team/companions.log`. Requires `claude` and `npx` on `PATH`. Set `AI_DEV_TEAM_NO_AUTO_INSTALL=1` to disable it. Agents still work without these companions.
+### Third-party material
+The full-audit procedure and attack-class catalog in `skills/security-review-checklist/references/` are condensed and adapted from Cloudflare's [`security-audit`](https://github.com/cloudflare/security-audit-skill) skill (MIT) — see `THIRD-PARTY-NOTICES.md`.
 
 ## Structure
 
 ```
 .claude-plugin/plugin.json       plugin manifest
 .claude-plugin/marketplace.json  single-plugin marketplace (mvanvu)
+.claude-plugin/icon.png          plugin icon (source: scripts/icon-source.svg)
 agents/                          8 agent definitions
 skills/dev-team/                 orchestrator
 skills/<role-skill>/             per-role procedures (some have references/, e.g. project-profiling/references/run-heavy.sh)
-hooks/                           SessionStart hook that installs missing companion skills
+scripts/check-plugin.py          repo consistency check (cross-references, rule packs, version)
 ```
 
-Validate after changes: `claude plugin validate .` and `claude --plugin-dir . plugin details ai-dev-team`.
+Validate after changes: `python3 scripts/check-plugin.py`, `claude plugin validate .` and `claude --plugin-dir . plugin details ai-dev-team`.
 
 ## License
 

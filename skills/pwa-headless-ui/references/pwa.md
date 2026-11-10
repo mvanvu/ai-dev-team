@@ -54,8 +54,8 @@ Render the prompt with core components (`UiToast` / `UiDialog`), never ad-hoc ma
 ```
 
 ## Checks before marking a PWA task done
-- `npm run build && npm run preview`, then in Chrome DevTools → Application: manifest has no errors, service worker activated, installable.
-- Offline: toggle offline, reload — app shell loads, API screens show the designed offline/error state.
-- Update flow: rebuild with a change, reload — the update prompt appears and applies.
-- HTTPS is required in production (service workers only run on secure origins; localhost is exempt).
-- Lighthouse no longer has a PWA category; verify installability manually as above.
+1. `npm run build && npm run preview`, then in Chrome DevTools → Application: manifest has no errors, service worker activated, installable.
+2. Offline: toggle offline, reload — app shell loads, API screens show the designed offline/error state.
+3. Update flow: rebuild with a change, reload — the update prompt appears and applies.
+4. HTTPS is required in production (service workers only run on secure origins; localhost is exempt).
+5. Lighthouse no longer has a PWA category; verify installability manually as above.

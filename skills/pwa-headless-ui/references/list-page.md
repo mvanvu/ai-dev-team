@@ -126,7 +126,7 @@ Every list endpoint used by a list component provides: `limit` + `offset` (or `p
 
 ## 9. Tests and checks
 
-- Unit: `useListQuery` (state read from and written to the URL query with `replace`, nothing written to any storage, defaults omitted from the URL, invalid params dropped, picker mode never touches the URL, reset), `useColumnVisibility` (always-visible columns cannot be hidden, unknown ids ignored, storage failure falls back), column order helper (actions before ID, ID last, empty actions column omitted).
-- Lifecycle: checks in `record-lifecycle.md` §10 for the row menu, active switch and bulk bar.
-- Component: picker single closes on choose and emits one id; picker multiple keeps the selection across pages and filters, respects `max`, Cancel discards; preselected ids are checked.
-- QA in the browser: list page filters/sort/page survive reload and Back via the URL query; localStorage holds no filter keys; opening the list from the menu shows defaults; column toggles survive reload; title/name columns cannot be hidden; opening the picker does not change the page URL; mobile shows cards.
+1. Unit: `useListQuery` (state read from and written to the URL query with `replace`, nothing written to any storage, defaults omitted from the URL, invalid params dropped, picker mode never touches the URL, reset), `useColumnVisibility` (always-visible columns cannot be hidden, unknown ids ignored, storage failure falls back), column order helper (actions before ID, ID last, empty actions column omitted).
+2. Lifecycle: checks in `record-lifecycle.md` §10 for the row menu, active switch and bulk bar.
+3. Component: picker single closes on choose and emits one id; picker multiple keeps the selection across pages and filters, respects `max`, Cancel discards; preselected ids are checked.
+4. QA in the browser: list page filters/sort/page survive reload and Back via the URL query; localStorage holds no filter keys; opening the list from the menu shows defaults; column toggles survive reload; title/name columns cannot be hidden; opening the picker does not change the page URL; mobile shows cards.

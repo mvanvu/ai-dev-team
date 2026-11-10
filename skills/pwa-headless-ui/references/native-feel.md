@@ -150,10 +150,10 @@ Templates also expose the durations/easings as CSS variables (`--motion-fast`, `
 
 ## 11. Performance budget & verification
 
-- Animate only `transform` and `opacity`; never animate layout properties (`top`, `height`, `width`) on mobile.
-- Targets on a mid-range Android device: INP < 200ms, CLS < 0.1, LCP < 2.5s, no dropped frames during transitions in the DevTools Performance panel (CPU throttling 4x).
-- Initial JS for the first route ≤ ~170KB gzipped; lazy-load routes and heavy libraries (charts, editors).
-- Verify on real devices (iOS Safari standalone + Android Chrome installed PWA + Capacitor builds): gestures don't conflict with system gestures, keyboard doesn't cover focused inputs, safe areas correct in both orientations, reduced-motion respected.
+1. Animate only `transform` and `opacity`; never animate layout properties (`top`, `height`, `width`) on mobile.
+2. Targets on a mid-range Android device: INP < 200ms, CLS < 0.1, LCP < 2.5s, no dropped frames during transitions in the DevTools Performance panel (CPU throttling 4x).
+3. Initial JS for the first route ≤ ~170KB gzipped; lazy-load routes and heavy libraries (charts, editors).
+4. Verify on real devices (iOS Safari standalone + Android Chrome installed PWA + Capacitor builds): gestures don't conflict with system gestures, keyboard doesn't cover focused inputs, safe areas correct in both orientations, reduced-motion respected.
 
 ## 12. Rendering performance in Vue / React
 

@@ -12,11 +12,12 @@ The UI spec removes visual guesswork from implementation. A developer should be 
 2. **Flows**: map each acceptance criterion to the screens and steps the user goes through.
 3. **Screen inventory**: one entry per screen/modal/sheet.
 4. **Wireframes** per screen (ASCII by default; static HTML prototype in `_workspace/` for complex layouts). Always include loading, empty, error, success and disabled states; for mobile apps using online data also `offline` (banner over cached content, or a full offline screen with Retry when nothing is cached) and `reconnecting`.
-5. **Tokens**: reuse existing tokens; only add new ones with a reason. For new palettes/typography, consult the `ui-ux-pro-max` skill.
+5. **Tokens**: reuse existing tokens; only add new ones with a reason. For new palettes/typography, consult the `ui-ux-pro-max` skill when it is installed.
 6. **Components**: name, props, variants, interactions, and which existing component it extends.
 7. **Platform rules**:
-   - Web: breakpoints (e.g. 360 / 768 / 1024 / 1440), hover vs touch, keyboard navigation. Pagination is truncated, never a full list of page numbers: first/last pages, current page with neighbors and ellipses (`1 2 3 … 10 11 12` on desktop, `1 … 6 … 20` on mobile); cursor-based lists use previous/next or infinite scroll. Resource lists use one list layout for the page and the picker modal: filter bar (search, filters, reset, reload, columns), columns ordered identifying (always visible) → data → actions icon → auto-increment ID last, card layout on mobile; filters, sort and page are reflected in the URL (shareable), not remembered between visits; record pickers are inputs that open that list in a modal, single or multiple select; status filter (Active / Inactive / Trash), active switch, row menu and bulk bar follow the same active/inactive/trash rules for one row and for many (`ai-dev-team:technical-design` → `references/record-lifecycle.md`) (`ai-dev-team:pwa-headless-ui` → `references/list-page.md`).
+   - Web: breakpoints (e.g. 360 / 768 / 1024 / 1440), hover vs touch, keyboard navigation. Pagination, resource lists and record pickers follow `ai-dev-team:pwa-headless-ui` → `references/list-page.md` (truncated pagination, one list layout for the page and the picker modal, cards on mobile, filters/sort/page in the URL); the status filter, active switch, row menu and bulk bar follow `ai-dev-team:technical-design` → `references/record-lifecycle.md`.
    - Mobile: safe areas, native navigation patterns (iOS back swipe, Android back), touch targets ≥ 44pt / 48dp, offline/slow-network behavior, keyboard covering inputs.
+   - Mobile space and text (mobile web and app): no wasted space and no overflowing text — button pairs and short fields share a row, icon-left/text-right rows leave no dead space, horizontal scrollers are swipe-only with no visible scrollbar, every text element states truncate / clamp / wrap, and wireframes use worst-case content. Rules: `ai-dev-team:pwa-headless-ui` → `references/compact-layout.md`.
 8. **Accessibility**: contrast ≥ 4.5:1 for text, visible focus, labels for icons/inputs, logical reading order, no information by color alone.
 
 ## Visual identity (new template packs, landing / marketing pages)
@@ -28,7 +29,7 @@ App screens favor consistency with the existing template; a new template or a ma
 5. **Typography**: deliberate typefaces (not the usual defaults), clear scale, body line length under ~80 characters.
 6. **Motion**: user-triggered motion follows the template's motion tokens; ambient motion is rare — one orchestrated moment beats scattered effects.
 7. **Real copy**: write plausible, specific content; placeholder copy makes a design feel templated.
-Use `ui-ux-pro-max` for palette, font-pairing and stack data, then filter its suggestions through the steps above.
+When `ui-ux-pro-max` is installed, use it for palette, font-pairing and stack data, then filter its suggestions through the steps above.
 
 ## Template: `_workspace/02_designer_ui-spec.md`
 
@@ -42,6 +43,7 @@ platforms: web | ios | android
 - Wireframe (default state)
 - States: loading / empty / error / success / disabled
 - Responsive / platform notes
+- Mobile density: rows shared by buttons/fields, icon-row layout, overflow rule per text element (truncate / clamp / wrap)
 ## Tokens (new or changed)
 ## Components
 | Component | Base | Props / variants | Behavior |
@@ -51,4 +53,5 @@ platforms: web | ios | android
 ```
 
 ## Design QA
-Compare the implemented UI to the spec (read code; run the app or take screenshots if the project's `run` setup allows). Report each deviation as `blocker` (missing state, broken flow, a11y failure), `major` (wrong token/layout at a breakpoint), `minor` (spacing/polish), with `file:line`.
+Compare the implemented UI to the spec (read code; run the app or take screenshots if the project's `run` setup allows). Report each deviation as `blocker` (missing state, broken flow, a11y failure), `major` (wrong token/layout at a breakpoint; on phones: text overflowing or clipped without ellipsis, horizontal page scroll, wasted space such as stacked buttons that fit one row or dead space beside/under a row icon — `ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7), `minor` (spacing/polish), with `file:line`.
+When the task's `Rules` include a pack that names `ui-ux-designer` in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 (`COMPACT`), also return the `## Rule check T{id}` table: one row per rule ID, `pass | fail | n-o` with evidence (`file:line` or screenshot); a `fail` is a deviation with the rule ID in its title.

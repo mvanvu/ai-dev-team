@@ -85,6 +85,8 @@ Run every UI criterion at mobile first, then desktop (`page.setViewportSize` / d
 - Desktop: 1280×800
 Check at each size: correct shell (bottom nav vs sidebar), no horizontal scroll, touch targets ≥ 44px, all UI-spec states reachable (loading, empty, error, success, disabled; offline and reconnecting for mobile apps).
 
+At both mobile sizes also run the compact-layout checks (`ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7) on P with worst-case content (longest locale, long unbroken strings, large amounts) and again at font scale 130%: `.claude/team/overflow-check.mjs` reports no offenders, adjacent button pairs that fit share one row, icon/text rows leave no dead space. Attach one long-content screenshot per screen.
+
 ## 5. PWA checks in the browser (P on Chromium, A as fallback)
 - Manifest and service worker: `page.evaluate(() => navigator.serviceWorker.getRegistration())` resolves with an active worker (or `context.serviceWorkers()`); `link[rel=manifest]` present.
 - Offline and reconnect: after first load, `context.setOffline(true)` (or block the API host with `page.route`) → app shell renders and screens show the designed offline banner/screen; `context.setOffline(false)` → the app reconnects to the same screen by itself (`ai-dev-team:pwa-headless-ui` → `references/connectivity.md` §10).

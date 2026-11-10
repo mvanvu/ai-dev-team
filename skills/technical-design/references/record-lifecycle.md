@@ -96,11 +96,11 @@ Same rules as a single row:
 ## 10. Checks
 
 API (per soft-deleting entity):
-- `?trash=true` without the view-trash permission → 403; with it → trashed rows only.
-- Restore/purge with only the action permission, or only the view-trash permission → 403; with both → success.
-- Purge or restore of a live row → `400 NOT_IN_TRASH`; restored row has `active=false`, `deletedAt`/`deletedBy` cleared.
-- Trashed rows come back without edit or move-to-trash permissions; trashed records are rejected as new references.
+1. `?trash=true` without the view-trash permission → 403; with it → trashed rows only.
+2. Restore/purge with only the action permission, or only the view-trash permission → 403; with both → success.
+3. Purge or restore of a live row → `400 NOT_IN_TRASH`; restored row has `active=false`, `deletedAt`/`deletedBy` cleared.
+4. Trashed rows come back without edit or move-to-trash permissions; trashed records are rejected as new references.
 
 UI (single row and bulk):
-- Status filter shows Trash only when the returned permissions allow it; trash view swaps the switch for a chip.
-- Bulk buttons show applicable counts from the returned permissions and are disabled at 0; confirmations match the single-row ones; a partial failure reports both counts; selection clears after the action and on paging/filtering.
+5. Status filter shows Trash only when the returned permissions allow it; trash view swaps the switch for a chip.
+6. Bulk buttons show applicable counts from the returned permissions and are disabled at 0; confirmations match the single-row ones; a partial failure reports both counts; selection clears after the action and on paging/filtering.

@@ -16,6 +16,8 @@ The design exists so the developer never has to make an architectural decision m
 6. Break into tasks: 3–8 for a typical feature, each a coherent slice of one module with one Owner. Every task pays a fixed cost (agent start-up, review, QA), so merge small changes in the same module; split only past ~1–2 hours of work or when owners differ. Order so each task leaves the build green. Contract-defining tasks (schema, API) come before consumers (UI, mobile).
 6a. Resource lists: plan one list component per resource reused by its page and its picker (`ai-dev-team:pwa-headless-ui` → `references/list-page.md`); every list endpoint contract includes `limit`/`offset` with a server maximum, `search`, allowlisted `order`, the filters, `ids` for picker labels, `{ items, total }` and the permission keys the server returns (user and per row, in the project's own naming).
 6b. CRUD entities follow `references/record-lifecycle.md`: `active` + soft delete, trash/restore/purge permissions and endpoints, status filter, active switch, the permission keys the server returns (user and per row, in the project's own naming), and bulk actions with the same rules as single rows. Plan these into the entity's tasks without being asked.
+6c. Query shape: for every list, detail-with-children, export and bulk contract, name the relations and aggregates the response includes so they can be loaded in a fixed number of queries, and give clients a batch form (`ids`) instead of per-row requests (`ai-dev-team:code-review-checklist` → `references/query-performance.md`).
+6d. Rule packs: for every task, list the rule packs that apply in the task board's `Rules` column, using the "Applies when" table in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 and §5. Assign by what the task touches, not only by its tags; when unsure, assign the pack.
 7. When the UI spec / threat model exist, reconcile them: add UI tasks per screen/component and security requirements to the relevant tasks.
 
 ## Greenfield
@@ -52,11 +54,12 @@ New projects — and new apps or packages added to an existing repo — start on
 ## Template: `_workspace/02_architect_tasks.md` (task board)
 
 ```markdown
-| ID | Task | Owner | Depends on | Tags | Files | Verify with | Status |
-|----|------|-------|-----------|------|-------|-------------|--------|
-| T1 | Add order table migration | developer | - | - | migrations/... | `<test cmd>` | todo |
-| T2 | POST /orders endpoint | developer | T1 | security | src/... | `<test cmd>` | todo |
-| T3 | Order form screen | pwa-frontend-engineer | T2 | ui | web/... | `<test cmd>` | todo |
+| ID | Task | Owner | Depends on | Tags | Rules | Files | Verify with | Status |
+|----|------|-------|-----------|------|-------|-------|-------------|--------|
+| T1 | Add order table migration | developer | - | - | LIFE | migrations/... | `<test cmd>` | todo |
+| T2 | GET/POST /orders endpoints | developer | T1 | security | LIFE, ABUSE, QUERY | src/... | `<test cmd>` | todo |
+| T3 | Order list + form screens | pwa-frontend-engineer | T2 | ui | ARCH, COMPACT, LIST, LIFE | web/... | `<test cmd>` | todo |
 ```
 Owner: `pwa-frontend-engineer` for all frontend and mobile app work (screens, core components, templates, PWA, Flutter / Capacitor / native); `developer` for backend, data, infrastructure and non-UI code. Tags: `ui`, `pwa`, `mobile`, `security`.
+Rules: rule pack IDs from `ai-dev-team:dev-team` → `references/rule-packs.md` (`BASE` applies to every task and is not written). The implementer reports one row per rule ID; reviewers and QA re-check them.
 Status values: `todo | in-progress | review | qa | done | blocked | needs-rework`. The leader owns status updates.

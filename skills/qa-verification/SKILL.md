@@ -14,9 +14,10 @@ Run QA incrementally after each task — not once at the end. Most integration b
    - Read the producer (controller/handler/serializer) and every consumer (fetch hook, API client, mobile service, type definitions).
    - Compare field names and casing, types, nullability/optional, enum values, date formats, pagination shape, error codes and error body shape.
    - Any mismatch is a `QA_FAIL` even if unit tests pass.
-4. UI tasks: verify each UI-spec state is reachable (loading, empty, error, success, disabled; `offline` and `reconnecting` for mobile apps). Mobile apps using online data: cut the network and restore it (airplane mode, emulator, or Playwright `setOffline`) and confirm the offline UI appears and the app reconnects to the same screen without a tap — checks in `ai-dev-team:pwa-headless-ui` → `references/connectivity.md` §10. Paginated lists: with many pages, the control shows a truncated range with ellipses (never every page), keeps its width while paging, and the current page survives reload via the URL. Resource lists and pickers: checks in `ai-dev-team:pwa-headless-ui` → `references/list-page.md` §9 (filters/sort/page survive reload via the URL query and are not in localStorage, column toggles survive reload, identifying columns cannot be hidden, actions before ID and ID last, the picker modal selects one or many per props and never changes the page URL). CRUD entities: the API and UI checks in `ai-dev-team:technical-design` → `references/record-lifecycle.md` §10, including bulk actions behaving exactly like the single-row actions.
+4. UI tasks: verify each UI-spec state is reachable (loading, empty, error, success, disabled; `offline` and `reconnecting` for mobile apps). Pack-specific behavior — phone layout, lists and pickers, record lifecycle, connectivity, PWA, Capacitor — is verified rule by rule in step 5.
    **Browser testing**: any criterion observable only in a browser (UI flows, responsive layout, PWA install/offline/update, console errors, frontend network calls) is tested in the lightest browser that can prove it: headless criteria (DOM, flows, forms, console, network) on **Lightpanda**, then Playwright; visual and PWA criteria (layout per viewport, screenshots, animation, service worker, offline/reconnect) on **Playwright with Chromium headless shell** (WebKit for iOS-specific behavior), then Playwright MCP; **Claude in Chrome** for interactive criteria (install UI, a GIF the user asked for) and as the last fallback (self-connect: select a connected browser or launch Chrome and re-check). Lightpanda failures are confirmed on Playwright before being reported. Mobile viewport first, then desktop. Follow `references/browser-testing.md`.
-5. Append results to the QA report and send the verdict to the leader.
+5. **Rule check**: for every pack in the task's `Rules` that names `qa-engineer` in `ai-dev-team:dev-team` → `references/rule-packs.md` §2, verify each rule ID in the running app, with a test, or with its script when §9 of that file lists one — not by trusting the implementer's table — and write the `## Rule check T{id}` table (`pass | fail | n-o`, evidence = test name, command output or artifact path). Without a `Rules` column (standalone QA), pick the packs from that file's "Applies when" table. A `fail` is a `QA_FAIL` defect with the rule ID in its title; notes without a `## Rule compliance` section are a `QA_FAIL`.
+6. Append results to the QA report and send the verdict to the leader.
 
 ## Feature sign-off
 Run the full suite once (through the wrapper) and confirm every acceptance criterion is `pass`. List any `not-tested` with the reason.
@@ -35,6 +36,8 @@ Evidence: <output excerpt or file:line on both sides of the contract>
 # QA report
 ## T{id} — <verdict>
 | AC | Status | Evidence |
+### Rule check
+| Rule | Result | Evidence |
 ### Contract checks
 | Contract | Producer | Consumer | Result |
 ### Commands

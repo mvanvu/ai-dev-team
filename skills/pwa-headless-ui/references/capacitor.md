@@ -73,9 +73,9 @@ npx cap open ios | npx cap open android
 ```
 
 ## Checks before marking a Capacitor task done
-- `npx cap sync` succeeds; config contains no http URL and `cleartext: false` for release.
-- Airplane mode on device/emulator → `offline.html` appears, retry works, and turning the network back on reloads the app at the last path without a tap.
-- iOS: service worker registers inside the app (Safari Web Inspector → Service Workers).
-- Plugin calls are guarded; web fallback works in a normal browser.
-- Checks in `capacitor-native-feel.md` §10 pass.
-- Native builds not runnable in this environment (no Xcode/SDK) → mark `not-run` with reason.
+1. `npx cap sync` succeeds; config contains no http URL and `cleartext: false` for release.
+2. Airplane mode on device/emulator → `offline.html` appears, retry works, and turning the network back on reloads the app at the last path without a tap.
+3. iOS: service worker registers inside the app (Safari Web Inspector → Service Workers).
+4. Plugin calls are guarded; web fallback works in a normal browser.
+5. Checks in `capacitor-native-feel.md` §10 pass.
+6. Native builds not runnable in this environment (no Xcode/SDK) → mark `not-run` with reason.
