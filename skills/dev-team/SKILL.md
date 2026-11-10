@@ -1,6 +1,6 @@
 ---
 name: dev-team
-description: "Orchestrates the AI software team (repo-scout, requirements-analyst, architect, ui-ux-designer, developer, pwa-frontend-engineer, code-reviewer, security-auditor, qa-engineer) through spec → design → build/review/QA → final review. Use for building features, fixing non-trivial bugs, refactors, new web/mobile screens, PWA/Capacitor apps, UI templates, or full reviews: 'build feature X', 'implement', 'add a screen', 'make it a PWA', 'add a new template', 'fix this bug', 'review this branch', 'security review', 'start a new project'. Also use for follow-ups: re-run, update, revise, continue, 'only redo the design', 'improve previous result'. Skip for simple questions or one-line edits."
+description: "Orchestrates the AI software team (repo-scout, architect, ui-ux-designer, developer, pwa-frontend-engineer, code-reviewer, security-auditor, qa-engineer) through spec → design → build/review/QA → final review. Use for building features, fixing non-trivial bugs, refactors, new web/mobile screens, PWA/Capacitor apps, UI templates, or full reviews: 'build feature X', 'implement', 'add a screen', 'make it a PWA', 'build a mobile app', 'add a new template', 'fix this bug', 'review this branch', 'security review', 'start a new project'. Also use for follow-ups: re-run, update, revise, continue, 'only redo the design', 'improve previous result'. Skip for simple questions or one-line edits."
 ---
 
 # Dev Team orchestrator
@@ -13,9 +13,9 @@ The main session is the **leader**. It never writes production code itself; it r
 |---|---|---|
 | 0 Context check | leader | — |
 | 1 Profile | subagent | one-shot fact gathering |
-| 2 Spec | subagent | one-shot; leader handles user Q&A |
+| 2 Spec | architect (spec mode) | leader handles user Q&A; the same architect continues into design |
 | 3 Design | subagents in parallel | architect, designer, security are independent given the spec |
-| 4 Build loop | per-task agents | an implementer keeps context across one task's review/QA rounds, then is replaced |
+| 4 Build loop | per-task agents, capped by the resource budget | an implementer keeps context across one task's review/QA rounds, then is replaced |
 | 5 Final review | workflow | fixed fan-out over dimensions + adversarial verification |
 | 6 Report | leader | — |
 
@@ -26,17 +26,23 @@ Invoking this skill counts as consent for the Phase 5 Workflow. Keep it small by
 | Agent (`subagent_type`) | Model | Skill | Output |
 |---|---|---|---|
 | `repo-scout` | sonnet | project-profiling | `.claude/team/project-profile.md` |
-| `requirements-analyst` | opus | spec-writing | `_workspace/01_analyst_spec.md` |
-| `architect` | opus | technical-design | `_workspace/02_architect_design.md`, `02_architect_tasks.md` |
+| `architect` | opus | spec-writing + technical-design | `_workspace/01_architect_spec.md`, `02_architect_design.md`, `02_architect_tasks.md` |
 | `ui-ux-designer` | opus | ui-ux-design | `_workspace/02_designer_ui-spec.md` |
 | `security-auditor` | opus | security-review-checklist | `_workspace/02_security_threat-model.md`, review verdicts |
 | `developer` | opus | implementation | backend / non-UI code + `_workspace/04_developer_T{id}.md` |
-| `pwa-frontend-engineer` | opus | pwa-headless-ui (+ implementation) | frontend code (Vue 3 / React TS, core components, templates, PWA, Capacitor) + `_workspace/04_pwa_T{id}.md` |
+| `pwa-frontend-engineer` | opus | pwa-headless-ui (+ implementation) | frontend code (Vue 3 / React TS, core components, templates, PWA) and mobile app (Flutter / Capacitor / native) + `_workspace/04_pwa_T{id}.md` |
 | `code-reviewer` | opus | code-review-checklist | review verdicts |
 | `qa-engineer` | sonnet | qa-verification | `_workspace/05_qa_report.md` |
 
 ### Agent and skill names
 This team ships as the `ai-dev-team` plugin, so Claude Code exposes every agent and skill with the `ai-dev-team:` prefix: call agents as `subagent_type: "ai-dev-team:<agent>"` (e.g. `ai-dev-team:developer`) and skills as `ai-dev-team:<skill>`. The tables use short names for readability. If the agent list shows the un-prefixed names (files copied into a project's `.claude/` instead of installed as a plugin), use those and pass `agentPrefix: ''` to the Phase 5 workflow.
+
+## Resource budget
+Agents run remotely and cost almost no local CPU; the commands they run (tests, builds, e2e, audits, dev servers, browsers) do. Uncapped, several agents each start a test runner that defaults to one worker per CPU thread, and the machine stalls. The budget lives in the project profile (`max_agents`, `heavy_workers`, `run-heavy` wrapper — written by `repo-scout`):
+- **Max concurrent agents: `max_agents` (default 4)**, counting every background agent and Workflow agent, not the leader. When the cap is reached, queue the next spawn until one finishes. Priority: fix rounds and QA/review of in-flight tasks before starting a new task — finishing work beats starting work.
+- **Heavy commands go through `.claude/team/run-heavy.sh`**: one heavy command at a time on the machine, at low CPU priority, with runners capped at `heavy_workers` workers. Put this rule in every implementer, reviewer and QA brief. If the wrapper is missing, rerun Phase 1.
+- Light commands (a single test file, type-check of one package, `git diff`, lint of changed files) may run directly.
+- Agents stop the dev servers, watchers and emulators they started before reporting.
 
 ## Routing by request type
 
@@ -49,6 +55,7 @@ This team ships as the `ai-dev-team` plugin, so Claude Code exposes every agent 
 | UI design only | 0 → 1 → 2 → 3 (designer only) → 6 |
 | New template / theme pack | 0 → 1 → 3 (designer: tokens + recipes spec) → 4 (pwa-frontend-engineer only, no core component edits allowed) → 6 |
 | PWA / Capacitor setup | 0 → 1 → 2 → 3 → 4 (pwa-frontend-engineer) → 5 (include `security`) → 6 |
+| Mobile app (new, or added to a web-only project) | 0 → 1 → 2 → **mobile platform choice** → 3 → 4 (pwa-frontend-engineer) → 5 (include `security`) → 6 |
 | Follow-up / partial rerun | 0 decides which phase to resume |
 
 ## Phase 0 — Context check
@@ -63,15 +70,16 @@ This team ships as the `ai-dev-team` plugin, so Claude Code exposes every agent 
 `Agent(subagent_type: "ai-dev-team:repo-scout")`. If the result is `status: greenfield`, tell the user and continue — the architect will propose a stack.
 
 ## Phase 2 — Spec (subagent)
-1. `Agent(subagent_type: "ai-dev-team:requirements-analyst")` with the user's request verbatim.
-2. If it returns open questions, ask the user (AskUserQuestion, max 4 at a time, include proposed defaults). Re-invoke the analyst with the answers.
+1. `Agent(subagent_type: "ai-dev-team:architect")` in spec mode with the user's request verbatim: "Write the spec". Keep its ID — the same agent continues into Phase 3.
+2. If it returns open questions, ask the user (AskUserQuestion, max 4 at a time, include proposed defaults).
 3. Read `has_ui` and `security_sensitive` from the spec header.
+4. **Mobile platform choice.** If the request needs an iOS/Android app and the project profile has `mobile_platform: none`, ask the user with one AskUserQuestion (header `Mobile`) offering, in this order: `Flutter (Recommended)` — one Dart codebase, native performance; `Capacitor (wrap the PWA)` — current setup, fastest, WebView limits; `Native apps` — Swift/SwiftUI + Kotlin/Compose, two codebases, highest cost. Pass the answer to the architect as a decision. Do the same when an implementer returns `needs-user-decision: mobile platform`. Details: `ai-dev-team:pwa-headless-ui` → `references/mobile-options.md`.
 
 ## Phase 3 — Design (parallel subagents, one message)
-- Always: `architect`.
+- Always: the Phase 2 `architect` via `SendMessage`: "Design" + the user's answers (it updates the spec first).
 - If `has_ui`: `ui-ux-designer`.
 - If `security_sensitive`: `security-auditor` (threat model mode).
-When all return and the designer or security agent ran, re-invoke `architect` once to reconcile the UI spec + threat model into the task board.
+The designer and security agent read the spec; when the user's answers change it materially, start them after the architect has updated the spec. When all return and the designer or security agent ran, send the same `architect` one reconcile message to fold the UI spec + threat model into the task board.
 
 **User gate:** show a short design summary (task count, key decisions, risks). Wait for approval when: greenfield, data migration, public API change, or > 8 tasks. Otherwise proceed and mention the user can stop you.
 
@@ -87,17 +95,20 @@ Start agents per task, not per run: `code-reviewer`, `qa-engineer`, and the impl
 Topology is **hub-and-spoke**: agents only talk to the leader. This keeps one source of truth and avoids conflicting instructions.
 
 For each task in dependency order (the leader updates the Status column of `_workspace/02_architect_tasks.md`):
-1. → the task's Owner (`developer` or `pwa-frontend-engineer`): "Implement T{id}". Wait for `DONE` / `BLOCKED`. Backend and frontend tasks with no dependency between them may run concurrently, one per implementer.
-2. Spawn this task's own reviewers in **one message** so they run in parallel: a new `code-reviewer`, plus a new `security-auditor` if the task is tagged `security` or any finding is tagged `→ security`, plus `ui-ux-designer` for design QA if tagged `ui`. Brief each with the commit range, the task row, the relevant spec/design sections and the task notes.
-3. Any blocker/major/critical/high → forward the merged findings to the task's Owner → back to the same task's reviewers that raised issues (via `SendMessage`), not new ones. **Max 3 rounds**; then mark `blocked` and report to the user.
-4. → qa-engineer: "QA T{id}". Tasks tagged `ui` or `pwa` include browser testing (Claude in Chrome, Playwright fallback). The browser is a shared resource: run browser QA for one task at a time. If QA reports that the browser needs the user (extension not installed/signed in, dialog to dismiss), relay it to the user. `QA_FAIL` → Owner fixes → QA again (counts toward the 3 rounds).
-**Test cost.** Per task, run only the tests related to the change (the task's own tests, the suites for the touched modules, and the fast guards). The full suite runs at feature sign-off and in Phase 5, or earlier only when a change touches shared infrastructure. When the project's test runner is a shared, serial resource (one database, one container), say so in the brief and keep runs targeted so agents do not queue behind each other.
-5. Mark `done`. Independent tasks (no shared files, no dependency) may run with a second developer instance using `isolation: "worktree"`, only when there are ≥ 4 independent tasks.
+1. → the task's Owner (`developer` or `pwa-frontend-engineer`): "Implement T{id}". Wait for `DONE` / `BLOCKED`. Backend and frontend tasks with no dependency between them may run concurrently, one per implementer, within `max_agents`.
+2. **Review and QA in parallel.** Spawn in **one message**: a new `code-reviewer`, plus a new `security-auditor` if the task is tagged `security`, plus `ui-ux-designer` for design QA if tagged `ui`, plus `qa-engineer` ("QA T{id}") — all on the same commit range. Brief each with the task row, the relevant spec/design sections and the task notes. If that exceeds `max_agents`, start `code-reviewer` and `qa-engineer` first and queue the rest.
+   - Reviewers do not run test suites, lint or builds: the implementer's notes carry that output. A reviewer may run one specific test via the wrapper to prove a finding.
+   - QA does not rerun the implementer's tests: it checks acceptance criteria and contracts, adds missing integration/e2e tests and runs those, and does browser testing for tasks tagged `ui`, `pwa` or `mobile`. The browser is a shared resource: browser QA runs for one task at a time. If QA reports that the browser needs the user (extension not installed/signed in, dialog to dismiss), relay it to the user.
+   - A `code-reviewer` finding tagged `→ security` on an untagged task → spawn a `security-auditor` for that task then.
+3. Merge all blocker/major/critical/high findings and `QA_FAIL` defects into **one** fix request to the task's Owner. After the fix, send re-verification only to the reviewers/QA that raised issues (via `SendMessage`), in parallel. **Max 3 rounds**; then mark `blocked` and report to the user.
+4. Mark `done`. Independent tasks (no shared files, no dependency) may run with a second developer instance using `isolation: "worktree"`, only when there are ≥ 4 independent tasks and `max_agents` allows.
 
-After the last task: qa-engineer runs feature sign-off.
+**Test cost.** Per task, the implementer runs only the tests related to the change (the task's own tests, the suites for the touched modules, and the fast guards), via the wrapper. The full suite runs once at feature sign-off (QA), or earlier only when a change touches shared infrastructure. When the project's test runner is a shared, serial resource (one database, one container), say so in the brief.
+
+After the last task: qa-engineer runs feature sign-off (full suite, once).
 
 ## Phase 5 — Final review (Workflow)
-Build `args.dimensions` from the flags: always `correctness` (code-reviewer); `security` if `security_sensitive` or any `security` task; `ui` if `has_ui`. Pass `args.scope` (file list or `git diff` range), spec/design paths, and `args.agentPrefix` (`'ai-dev-team:'` by default). Then call Workflow with this script:
+Build `args.dimensions` from the flags: always `correctness` (code-reviewer); `security` if `security_sensitive` or any `security` task; `ui` if `has_ui`. Pass `args.scope` (file list or `git diff` range), spec/design paths, `args.agentPrefix` (`'ai-dev-team:'` by default) and `args.maxAgents` (the profile's `max_agents`; the workflow never runs more agents than that at once). Then call Workflow with this script:
 
 ```javascript
 export const meta = {
@@ -121,19 +132,29 @@ const P = args.agentPrefix ?? 'ai-dev-team:'
 const AGENT = { correctness: `${P}code-reviewer`, security: `${P}security-auditor`, ui: `${P}ui-ux-designer` }
 const SKILL = { correctness: `${P}code-review-checklist`, security: `${P}security-review-checklist`, ui: `${P}ui-ux-design (Design QA section)` }
 const SERIOUS = ['critical', 'high', 'blocker', 'major']
-const ctx = `Scope: ${args.scope}\nSpec: ${args.specPath}\nDesign: ${args.designPath}`
+const ctx = `Scope: ${args.scope}\nSpec: ${args.specPath}\nDesign: ${args.designPath}\nDo not run test suites, builds or audits: QA sign-off already ran the full suite. Run at most one specific test via .claude/team/run-heavy.sh to prove a finding.`
+
+// Shared cap on concurrent agents so the final review stays inside the resource budget.
+const LIMIT = Math.max(1, args.maxAgents ?? 4)
+let active = 0
+const waiting = []
+const slot = async run => {
+  while (active >= LIMIT) await new Promise(resolve => waiting.push(resolve))
+  active++
+  try { return await run() } finally { active--; waiting.shift()?.() }
+}
 
 const results = await pipeline(
   args.dimensions,
-  d => agent(
+  d => slot(() => agent(
     `Final ${d} review of the feature. Follow the ${SKILL[d]} skill.\n${ctx}\nReturn findings JSON only; empty array if none.`,
-    { agentType: AGENT[d], label: `review:${d}`, phase: 'Review', schema: FINDINGS })
+    { agentType: AGENT[d], label: `review:${d}`, phase: 'Review', schema: FINDINGS }))
     .then(r => (r ? r.findings.map(f => ({ ...f, dimension: d })) : null)),
   findings => findings === null ? null : parallel(findings.map(f => () =>
     SERIOUS.includes(f.severity)
-      ? agent(
+      ? slot(() => agent(
           `Adversarially verify this finding. Try to refute it by reading the code, callers, guards and tests. confirmed = reachable failure; refuted = prevented; uncertain = cannot decide.\n${JSON.stringify(f)}\n${ctx}`,
-          { agentType: AGENT[f.dimension], label: `verify:${f.file}`, phase: 'Verify', schema: VERDICT, effort: 'high' })
+          { agentType: AGENT[f.dimension], label: `verify:${f.file}`, phase: 'Verify', schema: VERDICT, effort: 'high' }))
           .then(v => ({ ...f, verdict: v ?? { status: 'uncertain', reason: 'verifier failed' } }))
       : Promise.resolve({ ...f, verdict: { status: 'unverified', reason: 'minor severity' } })))
 )
@@ -175,9 +196,9 @@ Summary of what was built, files changed, test/QA results with real numbers, rev
 
 ### Normal flow
 1. User: "Add password reset by email." Profile exists (Symfony + React).
-2. Analyst returns spec with `has_ui=true`, `security_sensitive=true`, 1 open question (token TTL; default 30 min) → user accepts default.
-3. Design phase runs architect + designer + security in parallel; architect reconciles → 5 tasks (2 tagged security, 1 tagged ui).
-4. Build loop: T2 gets a `high` finding (token not single-use) → developer fixes → security re-review `SECURE` → QA_PASS.
+2. Architect (spec mode) returns spec with `has_ui=true`, `security_sensitive=true`, 1 open question (token TTL; default 30 min) → user accepts default.
+3. Architect writes the spec; design phase continues the same architect + designer + security in parallel; architect reconciles → 5 tasks (2 tagged security, 1 tagged ui).
+4. Build loop: T2's code-reviewer, security-auditor and QA run in parallel; security reports `high` (token not single-use) → developer fixes → security re-review `SECURE`; QA_PASS stands.
 5. Final review workflow: 3 dimensions, 1 minor finding. Report lists 5 tasks done, all ACs pass.
 
 ### Normal flow — new template pack

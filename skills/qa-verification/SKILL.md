@@ -5,10 +5,10 @@ description: "QA procedure: run profile commands, verify each acceptance criteri
 
 # QA verification
 
-Run QA incrementally after each task — not once at the end. Most integration bugs live at module boundaries, and they are cheapest to catch right after the boundary is built.
+Run QA incrementally after each task — not once at the end. Most integration bugs live at module boundaries, and they are cheapest to catch right after the boundary is built. Per-task QA runs in parallel with code review on the same commit.
 
 ## Per-task procedure
-1. Run the test/lint/build commands from `.claude/team/project-profile.md`, limited to the tests related to the task (the full suite is for feature sign-off). Keep trimmed real output.
+1. Read the implementer's test/lint/build output in the task notes; do not rerun those tests. Missing output → `QA_FAIL` ("no test evidence"). Run only the integration/e2e tests you add or that cover the task's criteria, through `.claude/team/run-heavy.sh`. The full suite is for feature sign-off. Keep trimmed real output.
 2. For each acceptance criterion touched by the task: find the test that covers it; if none, write one (test files only). Mark `pass | fail | not-tested`.
 3. **Boundary check** for every contract touched (see design "Contracts"):
    - Read the producer (controller/handler/serializer) and every consumer (fetch hook, API client, mobile service, type definitions).
@@ -19,7 +19,7 @@ Run QA incrementally after each task — not once at the end. Most integration b
 5. Append results to the QA report and send the verdict to the leader.
 
 ## Feature sign-off
-Run the full suite once more and confirm every acceptance criterion is `pass`. List any `not-tested` with the reason.
+Run the full suite once (through the wrapper) and confirm every acceptance criterion is `pass`. List any `not-tested` with the reason.
 
 ## Defect format
 ```

@@ -11,13 +11,17 @@ The project profile is the team's shared source of truth: which test command the
 
 1. **List stack marker files** (Glob at root and two levels down):
    `package.json`, `pnpm-lock.yaml`, `yarn.lock`, `composer.json`, `pyproject.toml`, `requirements*.txt`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle*`, `Gemfile`, `pubspec.yaml`, `*.csproj`, `Dockerfile`, `docker-compose*.yml`, `Makefile`, `.github/workflows/*`, `.gitlab-ci.yml`.
-2. **Detect UI**: web (React/Vue/Svelte/Angular/Next/Nuxt, Twig/Blade templates), mobile (React Native, Flutter `pubspec.yaml`, `android/`, `ios/`, Swift/Kotlin). Record `ui: none | web | mobile | web+mobile`.
+2. **Detect UI**: web (React/Vue/Svelte/Angular/Next/Nuxt, Twig/Blade templates), mobile (React Native, Flutter `pubspec.yaml`, `android/`, `ios/`, Swift/Kotlin). Record `ui: none | web | mobile | web+mobile`. Record `mobile_platform`: `flutter` (`pubspec.yaml`), `capacitor` (`capacitor.config.*`), `react-native`, `native` (Swift/Kotlin projects without Capacitor), else `none`.
    Also record frontend architecture facts: PWA (`vite-plugin-pwa`, `manifest.webmanifest`, service worker), Capacitor (`capacitor.config.*`, its `server.url`), headless library (`reka-ui`, `radix-ui`, `@radix-ui/*`, `react-aria-components`), and template packs (`src/templates/*`, active template selection).
 3. **Find commands** in package.json `scripts`, `Makefile`, composer scripts, and CI config. CI config is usually the most trustworthy source because it actually runs.
 4. **Run** each test/lint command (with a sensible timeout). Record `verified` / `failed: <key error>` / `not-run: <reason>`.
 5. **Conventions**: read 3–5 representative files per kind (controller, service, component, test) to extract naming, layout, test framework and assertion style.
 6. **Security tooling**: record the dependency audit command for the stack (`npm audit`, `composer audit`, `pip-audit`, `govulncheck`, ...).
-7. Write the profile using the template below.
+7. **Resource budget** — so parallel agents do not saturate the machine:
+   - Copy `references/run-heavy.sh` from this skill's directory to `.claude/team/run-heavy.sh` and make it executable. It runs one heavy command at a time machine-wide, at low CPU priority.
+   - `heavy_workers` = max(2, CPU threads ÷ 4) (`nproc`, or `sysctl -n hw.ncpu` on macOS). `max_agents` = 4 unless the existing profile sets another value — keep the user's value on re-profiling.
+   - Write every heavy command (full/module test runs, builds, e2e, audits, native builds) in the Commands table already wrapped and worker-capped, e.g. `.claude/team/run-heavy.sh npx vitest run --maxWorkers=8`. Worker flags: Vitest/Jest `--maxWorkers=N`, pytest-xdist `-n N`, ParaTest `--processes=N`, Go `-p N`, Gradle `--max-workers=N`, Maven `-T N`, `flutter test -j N`, Playwright `--workers=N`, `cargo test -j N`, `make -jN`. Docker-based runners: add `--cpus=N` or set it in the compose file used for tests. Record also the light command for a single test file.
+8. Write the profile using the template below.
 
 Empty repo: write `status: greenfield` and skip steps 3–6.
 
@@ -28,6 +32,9 @@ Empty repo: write `status: greenfield` and skip steps 3–6.
 updated: YYYY-MM-DD
 status: active | greenfield
 ui: none | web | mobile | web+mobile
+mobile_platform: none | flutter | capacitor | native | react-native
+max_agents: 4
+heavy_workers: N
 ---
 # Project Profile
 
@@ -38,7 +45,8 @@ ui: none | web | mobile | web+mobile
 ## Commands
 | Purpose | Command | Status |
 |---|---|---|
-| test | ... | verified |
+| test (related/module, heavy) | .claude/team/run-heavy.sh ... | verified |
+| test (single file, light) | ... | verified |
 | lint | ... | ... |
 | build | ... | ... |
 | security audit | ... | ... |

@@ -1,6 +1,6 @@
 ---
 name: spec-writing
-description: "Writes a feature spec: goal, scope, Given/When/Then acceptance criteria, edge cases, non-functional constraints, has_ui/security_sensitive flags and open questions. Used by requirements-analyst, or when asked to 'write a spec', 'analyze requirements', or 'write acceptance criteria'. Not for technical design (use technical-design)."
+description: "Writes a feature spec: goal, scope, Given/When/Then acceptance criteria, edge cases, non-functional constraints, has_ui/security_sensitive flags and open questions. Used by architect (spec mode), or when asked to 'write a spec', 'analyze requirements', or 'write acceptance criteria'. Not for technical design (use technical-design)."
 ---
 
 # Spec writing
@@ -17,7 +17,7 @@ A good spec lets three different people (designer, developer, QA) read it and un
 5. Set flags `has_ui` and `security_sensitive` (auth, authorization, PII, payments, uploads, external input, third-party integrations).
 6. Open questions: only ask what changes behavior; each comes with a proposed default.
 
-## Template: `_workspace/01_analyst_spec.md`
+## Template: `_workspace/01_architect_spec.md`
 
 ```markdown
 # Spec: <feature name>

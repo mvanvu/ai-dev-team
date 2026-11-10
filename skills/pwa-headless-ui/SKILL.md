@@ -1,6 +1,6 @@
 ---
 name: pwa-headless-ui
-description: "How to build a mobile-first PWA in Vue 3 or React + TypeScript on a headless core-component architecture with swappable template packs (Reka UI / Radix UI / React Aria), PWA setup (manifest, service worker, offline, updates), and Capacitor wrapping the PWA's HTTPS URL. Used by pwa-frontend-engineer, or when asked to add a core component, create/switch a UI template or theme, set up the PWA, or configure Capacitor. Not for backend work (implementation) or visual design specs (ui-ux-design)."
+description: "How to build a mobile-first PWA in Vue 3 or React + TypeScript on a headless core-component architecture with swappable template packs (Reka UI / Radix UI / React Aria), PWA setup (manifest, service worker, offline, updates), and the mobile app platform choice â€” Flutter (recommended), Capacitor wrapping the PWA's HTTPS URL, or native Swift/Kotlin. Used by pwa-frontend-engineer, or when asked to add a core component, create/switch a UI template or theme, set up the PWA, build a mobile app, or configure Capacitor. Not for backend work (implementation) or visual design specs (ui-ux-design)."
 ---
 
 # PWA + headless UI + Capacitor
@@ -58,6 +58,9 @@ Interaction libraries are used only inside `src/ui/core/` and template shells â€
 
 ## PWA
 Read `references/pwa.md`: `vite-plugin-pwa` setup, manifest with maskable icons, caching strategies per resource type, offline fallback, update prompt, installability checks.
+
+## Mobile app platform
+Read `references/mobile-options.md` whenever a mobile app is involved. The user chooses between **Flutter (Recommended)**, **Capacitor wrapping the PWA** (the setup below) and **native apps** (Swift/Kotlin); an existing platform in the repo is kept. The reference covers when to ask, the trade-offs to present, and how to build the Flutter and native options.
 
 ## Capacitor (remote HTTPS URL)
 Read `references/capacitor.md` before touching native config. It covers `server.url` config, iOS App-Bound Domains for service workers, the offline/fallback page, platform detection, plugin use, and the risks to report to the user (Capacitor documents `server.url` as meant for live reload; App Store guideline 4.2 on thin web wrappers).
