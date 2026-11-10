@@ -9,6 +9,7 @@
 6. Adaptive shells
 7. Enforcing the boundaries
 8. Testing
+9. Checks
 
 ## 1. Directory layout
 
@@ -350,3 +351,12 @@ export default [
 - Core components: Vitest + `@testing-library/vue` / `@testing-library/react`. Assert roles, keyboard behavior, emitted events/callbacks, and that the class comes from the provided template (inject a stub template with marker classes).
 - Template completeness: type-check is the test. Optionally a test that mounts every core component with every registered template and checks it renders without errors.
 - Visual: screenshots at 360px and 1280px per template when tooling allows.
+
+## 9. Checks
+1. No file under `src/features/` or `src/pages/` imports a headless library, an interaction library or a template; the boundary lint rules of §7 exist and pass.
+2. Core components hold no visual classes, colors or spacing values; every visual comes from the active template's recipes and tokens.
+3. Templates hold no behavior or business logic; a template-only task changes nothing outside `src/templates/`.
+4. Every registered template implements the full `UiTemplate` contract — type-check passes with all templates.
+5. A new core component has behavior tests (roles, keyboard, events) and a recipe in every template.
+6. Every state in the UI spec is implemented (loading, empty, error, success, disabled; `offline` and `reconnecting` for mobile apps).
+7. The screen is verified at 360px and 1280px, mobile layout written first.

@@ -1,6 +1,6 @@
 ---
 name: security-review-checklist
-description: "Threat-modeling template and vulnerability review checklist (OWASP Top 10, OWASP API Top 10, OWASP MASVS for mobile, authn/authz, secrets, dependencies, automated abuse by scrapers/bots/AI crawlers and agents) with finding format and structured output. Used by security-auditor and the dev-team final review workflow. For a full standalone codebase audit or pen-test report, use the global security-audit skill instead."
+description: "Threat-modeling template and vulnerability review checklist (OWASP Top 10, OWASP API Top 10, OWASP MASVS for mobile, authn/authz, secrets, dependencies, automated abuse by scrapers/bots/AI crawlers and agents) with finding format and structured output. Used by security-auditor and the dev-team final review workflow. Also covers full codebase audits and pen-test style reviews (procedure, severity anchors, attack classes by domain) in its references."
 ---
 
 # Security review checklist
@@ -30,6 +30,12 @@ description: "Threat-modeling template and vulnerability review checklist (OWASP
 10. **Dependencies** — when a manifest/lockfile changed (or in a full audit), run the audit command from the project profile (wrapped by `run-heavy.sh`); report high/critical with fixed versions.
 11. **Mobile (MASVS)** — secrets/tokens in plain storage (use Keychain/Keystore), exported components and deep-link validation, WebView JS bridges, TLS/pinning, excessive permissions, sensitive data in logs/screenshots.
 12. **Automated abuse & resource consumption** — raw data exposure (response allowlists, enumerable IDs, unbounded list/search/export), rate limits by IP and identity, size limits and timeouts, GraphQL limits, bot and AI-crawler controls, challenges on sensitive business flows, quotas and authorization for the app's own AI features and agent APIs. Read `references/automated-abuse.md` for the controls and severity guide.
+
+## Full audit
+When the user asks to audit or pen-test the codebase, for a full / comprehensive / end-to-end security review, or for an audit report, read `references/full-audit.md` (modes, execution safety, principles, severity anchors, workflow, candidate gate, report) and pick what to hunt from `references/attack-classes.md` (core classes plus the domains matching the target). A per-task review stays on the checklist above and uses those files only to go deeper on one class.
+
+## Rule check
+For a task review, return the `## Rule check T{id}` table (`ai-dev-team:dev-team` → `references/rule-packs.md` §7) with one row per `ABUSE` rule ID (its §2–§9, when the pack is assigned) and per threat-model requirement `SEC-n` attached to the task: `pass | fail | n-o` with evidence. A `fail` is also a finding with the rule ID in its title and means `ISSUES_FOUND`.
 
 ## Finding format
 ```

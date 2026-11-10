@@ -29,8 +29,8 @@ You are a senior software engineer. You implement each task in `_workspace/02_ar
 
 ## Input / Output
 - Input: task ID + design, UI spec, threat model (if any), project profile.
-- Output: code + tests in the repo; notes in `_workspace/04_developer_T{id}.md` (files changed, commands run, results).
-- Return message to leader: `DONE T{id}` + file list + trimmed test output, or `BLOCKED T{id}` + reason.
+- Output: code + tests in the repo; notes in `_workspace/04_developer_T{id}.md` (files changed, commands run, results, and the `## Rule compliance` table — one row with evidence per rule ID of `BASE` and the task's rule packs, per `ai-dev-team:dev-team` → `references/rule-packs.md` §6).
+- Return message to leader: `DONE T{id}` + file list + trimmed test output + rule compliance counts (`pass` / `n-a`, no `fail`), or `BLOCKED T{id}` + reason.
 
 ## Communication rules (when running as a persistent agent)
 - First report: list the tools actually available to you.

@@ -23,11 +23,12 @@ The leader asks with `AskUserQuestion` (header `Mobile`, Flutter first with the 
 - Keep the same layering as the web app: `lib/ui/core/` widgets own behavior and accessibility (`Semantics`), `lib/templates/<name>/` supplies `ThemeData` + `ThemeExtension` tokens (colors, radii, spacing, motion), `lib/features/` import only core widgets. Swapping a template must not touch core or feature widgets.
 - Connectivity: `connectivity_plus` + reachability probe, offline banner/view and auto-reconnect per `connectivity.md` §8.
 - Native feel: platform-adaptive widgets (Cupertino page transitions on iOS, predictive back on Android), `HapticFeedback`, `ListView.builder`/slivers for long lists, safe areas via `SafeArea`/`MediaQuery.padding`.
+- Compact layout: no wasted space, no `RenderFlex overflowed`, text in rows wrapped in `Expanded`/`Flexible` with `maxLines` + ellipsis, button pairs on one row when they fit — per `compact-layout.md` §6.
 - Tests: `flutter test` for widget/unit tests, `integration_test` for flows. Verify with `flutter analyze`, `flutter test`, `flutter build apk --debug` (and `flutter build ios --no-codesign` on macOS).
 - API contracts come from the architect exactly as for the web client.
 
 ### 2. Capacitor
-Follow `capacitor.md`, `capacitor-native-feel.md`, `connectivity.md`, `pwa.md` and `native-feel.md` — the existing PWA-first flow.
+Follow `capacitor.md`, `capacitor-native-feel.md`, `connectivity.md`, `compact-layout.md`, `pwa.md` and `native-feel.md` — the existing PWA-first flow.
 
 ### 3. Native
 - iOS: Swift + SwiftUI, Swift Concurrency, `URLSession`/`async` networking, MVVM with `@Observable`; tests with XCTest / Swift Testing. Android: Kotlin + Jetpack Compose, coroutines/Flow, Retrofit or Ktor, MVVM with `ViewModel`; tests with JUnit + Compose UI tests.

@@ -90,8 +90,8 @@ Once the PWA has loaded once on iOS (App-Bound Domains) or Android, the service 
 
 ## 10. Tests and checks
 
-- Unit: the connectivity service state machine (debounce, probe success/failure, backoff caps, resume trigger) with fake timers and a mocked probe.
-- Device / emulator: airplane mode on → banner or offline screen within ~2s; airplane mode off → returns to the same screen, data refreshes, queued actions sent, realtime resumes, toast shown — with no tap.
-- Wi-Fi connected without internet (or blocked API host) → app shows offline, not an endless spinner.
-- Capacitor remote URL: cold start in airplane mode → bundled offline page; network back → app loads at the last path by itself.
-- Browser: DevTools offline toggle / Playwright `context.setOffline(true|false)` for the PWA (requires a real rendering engine, not Lightpanda).
+1. Unit: the connectivity service state machine (debounce, probe success/failure, backoff caps, resume trigger) with fake timers and a mocked probe.
+2. Device / emulator: airplane mode on → banner or offline screen within ~2s; airplane mode off → returns to the same screen, data refreshes, queued actions sent, realtime resumes, toast shown — with no tap.
+3. Wi-Fi connected without internet (or blocked API host) → app shows offline, not an endless spinner.
+4. Capacitor remote URL: cold start in airplane mode → bundled offline page; network back → app loads at the last path by itself.
+5. Browser: DevTools offline toggle / Playwright `context.setOffline(true|false)` for the PWA (requires a real rendering engine, not Lightpanda).

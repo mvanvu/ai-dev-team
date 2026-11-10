@@ -31,12 +31,12 @@ Library choice:
 Read `references/architecture.md` for the template contract, provider, core component examples (Vue and React), directory layout and lint enforcement.
 
 ## Procedure for a frontend task
-1. Read the task, the design contracts and the UI spec section.
+1. Read the task, the design contracts and the UI spec section, and every must-read reference of the rule packs in the task's `Rules` column (`ai-dev-team:dev-team` → `references/rule-packs.md` §2).
 2. Need a component the core layer lacks? Add it to `src/ui/core/` first (with behavior tests), add its recipe slot to the `UiTemplate` contract, then implement the recipe in **every** existing template (the compiler will list the ones you missed).
 3. Build the feature screen using only core components. Mobile layout first; add `md:` / `lg:` enhancements and the desktop shell second.
 4. Implement every UI-spec state (loading, empty, error, success, disabled).
 5. Run: type-check (`vue-tsc --noEmit` or `tsc --noEmit`), lint, unit tests, production build. Record real output in task notes.
-6. Verify at 360px and 1280px widths (screenshot via the `run` skill or Playwright when available).
+6. Verify at 360px and 1280px widths (screenshot via the `run` skill or Playwright when available); at 360px also with worst-case strings (longest locale, long unbroken name, large amount) per `references/compact-layout.md` §7.
 
 ## Adding a new template
 1. Copy `src/templates/default/` to `src/templates/<name>/`.
@@ -48,6 +48,7 @@ Read `references/architecture.md` for the template contract, provider, core comp
 - Base styles target ~360px; enhance with `sm/md/lg/xl` breakpoints. Never write desktop-first then override down.
 - Touch targets ≥ 44px; no hover-only interactions; use `:focus-visible`.
 - Pagination never renders every page number: `UiPagination` shows first/last pages, the current page with neighbors and ellipses (`1 2 3 … 10 11 12`), fewer items on mobile — see `references/architecture.md` §4a.
+- No wasted space and no overflowing text on phones (mobile web and app): button pairs and short fields share a row, icon rows leave no dead space, horizontal scrollers are swipe-only with the scrollbar hidden, every text container is `min-w-0` with a truncate / clamp / wrap decision — `references/compact-layout.md`.
 - Respect safe areas: `viewport-fit=cover` + `env(safe-area-inset-*)` padding in shells.
 - Use `dvh` units for full-height layouts (mobile browser bars).
 - Adaptive shells: `MobileShell` (bottom nav, top app bar) and `DesktopShell` (sidebar, wider content) chosen by a media-query composable/hook, both supplied by the template.
@@ -76,10 +77,5 @@ To make the wrapped app feel native, also read `references/capacitor-native-feel
 
 ## Done criteria
 - Type-check, lint, tests, build all green (real output in notes).
-- No feature file imports a headless library or a template (lint rule passes).
-- Layout verified at mobile and desktop widths; all UI-spec states present.
-- Native-feel checks (when the task touches navigation, gestures, overlays or lists): only `transform`/`opacity` animated, gestures follow the finger and release into a spring, reduced-motion respected, every gesture has a button alternative, no re-renders during gestures (`references/native-feel.md` §12), budget in §11 met or the gap reported.
-- Resource lists follow `references/list-page.md` (one list component for page and picker, column order, column chooser with always-visible columns, filters in the URL query only, columns in localStorage); checks in its §9 pass.
-- Numbered pagination uses `UiPagination` with truncation (no full page list), current page in the URL.
-- Mobile apps with online data: checks in `references/connectivity.md` §10 pass.
-- PWA/Capacitor tasks: checks in the respective reference file pass (Capacitor: `capacitor.md` and `capacitor-native-feel.md` §10).
+- Task notes contain the `## Rule compliance` table: one row with evidence per rule ID of `BASE` and each assigned pack (`ai-dev-team:dev-team` → `references/rule-packs.md` §6).
+- Without assigned packs (standalone use), run the numbered checks of every reference this task touched: `architecture.md` §9 always; `compact-layout.md` §7 for phone screens; `list-page.md` §9 for lists and pickers; `native-feel.md` §11 for navigation, gestures, overlays and long lists; `connectivity.md` §10 for mobile apps with online data; the Checks sections of `pwa.md`, `capacitor.md` and `capacitor-native-feel.md` §10 for PWA / Capacitor tasks.

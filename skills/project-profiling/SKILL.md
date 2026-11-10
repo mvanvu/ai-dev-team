@@ -21,7 +21,8 @@ The project profile is the team's shared source of truth: which test command the
    - Copy `references/run-heavy.sh` from this skill's directory to `.claude/team/run-heavy.sh` and make it executable. It runs one heavy command at a time machine-wide, at low CPU priority.
    - `heavy_workers` = max(2, CPU threads ÷ 4) (`nproc`, or `sysctl -n hw.ncpu` on macOS). `max_agents` = 4 unless the existing profile sets another value — keep the user's value on re-profiling.
    - Write every heavy command (full/module test runs, builds, e2e, audits, native builds) in the Commands table already wrapped and worker-capped, e.g. `.claude/team/run-heavy.sh npx vitest run --maxWorkers=8`. Worker flags: Vitest/Jest `--maxWorkers=N`, pytest-xdist `-n N`, ParaTest `--processes=N`, Go `-p N`, Gradle `--max-workers=N`, Maven `-T N`, `flutter test -j N`, Playwright `--workers=N`, `cargo test -j N`, `make -jN`. Docker-based runners: add `--cpus=N` or set it in the compose file used for tests. Record also the light command for a single test file.
-8. Write the profile using the template below.
+8. **Rule check scripts**: copy `references/rule-checks.sh` and `references/overflow-check.mjs` from this skill's directory to `.claude/team/` and make them executable. Implementers and QA run them as evidence for the rules a script can decide (`ai-dev-team:dev-team` → `references/rule-packs.md` §9).
+9. Write the profile using the template below.
 
 Empty repo: write `status: greenfield`, `tooling_policy: latest-stable`, and skip steps 3–6. Existing projects get `tooling_policy: keep-existing`.
 

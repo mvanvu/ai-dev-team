@@ -103,10 +103,10 @@ These also add the native value Apple expects under guideline 4.2 (`capacitor.md
 
 ## 10. Checks before marking a task done
 
-- Splash stays until content paints, with no white flash; second launch works in airplane mode.
-- Root WebView does not scroll or bounce; pages scroll in inner containers and keep their position on back.
-- Keyboard opens without layout jumps and the focused input stays visible.
-- Android back closes overlays first, then navigates back, then minimizes on the root tab.
-- iOS edge swipe-back works; page transitions animate on the minimum supported iOS version.
-- `data-effects="reduced"` styles exist in every template.
-- Debugging is disabled in release builds.
+1. Splash stays until content paints, with no white flash; second launch works in airplane mode.
+2. Root WebView does not scroll or bounce; pages scroll in inner containers and keep their position on back.
+3. Keyboard opens without layout jumps and the focused input stays visible.
+4. Android back closes overlays first, then navigates back, then minimizes on the root tab.
+5. iOS edge swipe-back works; page transitions animate on the minimum supported iOS version.
+6. `data-effects="reduced"` styles exist in every template.
+7. Debugging is disabled in release builds.

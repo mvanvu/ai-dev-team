@@ -44,6 +44,15 @@ Agents run remotely and cost almost no local CPU; the commands they run (tests, 
 - Light commands (a single test file, type-check of one package, `git diff`, lint of changed files) may run directly.
 - Agents stop the dev servers, watchers and emulators they started before reporting.
 
+## Rule compliance
+Agents break rules they were never handed or never had to prove. So every task carries its rules explicitly — full procedure and formats in `references/rule-packs.md`:
+- The task board's `Rules` column (filled by the architect) lists the rule packs for each task; `BASE` applies to all. A pack is a numbered checklist in one reference file, and a rule ID is pack + item number (`COMPACT-3`).
+- **Brief**: every implementer, reviewer and QA brief includes the task's rule packs and their must-read files, resolved from `references/rule-packs.md` §2. Never brief an agent with "follow the skill" alone.
+- **DONE gate**: accept `DONE` only when the task notes hold a `## Rule compliance` table with one row per rule ID — `pass` with openable evidence or `n-a` with a reason. Otherwise return it with the missing rows (not a fix round).
+- **Verdict gate**: every review, design-QA and QA verdict carries a `## Rule check T{id}` table for the packs that role verifies; ask for it when missing.
+- **Coverage**: a task is `done` only when each rule ID is confirmed `pass` by at least one verifier; rules nobody could observe are reported as `unverified`.
+- **Ledger**: verifier `fail`s go to `_workspace/rule-violations.md`; a rule that fails in two tasks is added as a warning line to every later brief.
+
 ## Routing by request type
 
 | Request | Phases |
@@ -87,7 +96,7 @@ The designer and security agent read the spec; when the user's answers change it
 Start agents per task, not per run: `code-reviewer`, `qa-engineer`, and the implementers the task board needs — `developer` for tasks with Owner `developer`, `pwa-frontend-engineer` for tasks with Owner `pwa-frontend-engineer`; plus `security-auditor` if any task is tagged `security`, `ui-ux-designer` if any task is tagged `ui`. Keep each agent's ID/name from the Agent result and continue it with `SendMessage` for the review, QA and fix rounds of **the same task**, so it keeps that task's context.
 
 **Agent lifetime.** Context grows with every task, and a long-lived agent gets slower and costlier on every turn. So:
-- An implementer handles one task (or a small group of tasks that share files) and is then retired. The next task gets a fresh agent of the same type, briefed with the task row, the design/UI-spec sections, the previous task notes it depends on, and the ledger of rulings.
+- An implementer handles one task (or a small group of tasks that share files) and is then retired. The next task gets a fresh agent of the same type, briefed with the task row, its rule packs and must-read files, the design/UI-spec sections, the previous task notes it depends on, the ledger of rulings, and any repeated-violation warnings from `_workspace/rule-violations.md`.
 - Reviewers are never shared across tasks. For each task the leader spawns a **new** `code-reviewer` agent and, when the task needs one, a **new** `security-auditor` agent (and a `ui-ux-designer` for design QA), all in one message so they run in parallel. Reviews of different tasks also run in parallel, each with its own agents. Re-verifying a fix round of the same task goes back to that task's reviewers (`SendMessage`), which keeps their findings in context; a new task always gets new reviewers.
 - Replace any agent early when its context passes ~500k tokens, even mid-task: ask it to write its notes file first, then brief the replacement from that file.
 - The handover lives in files (`_workspace/04_*_T{id}.md`, the task board, a rulings ledger), never only in an agent's memory. Each agent's first message lists its available tools — if one is missing a tool it needs, restart it without the restriction or do that step yourself.
@@ -95,79 +104,20 @@ Start agents per task, not per run: `code-reviewer`, `qa-engineer`, and the impl
 Topology is **hub-and-spoke**: agents only talk to the leader. This keeps one source of truth and avoids conflicting instructions.
 
 For each task in dependency order (the leader updates the Status column of `_workspace/02_architect_tasks.md`):
-1. → the task's Owner (`developer` or `pwa-frontend-engineer`): "Implement T{id}". Wait for `DONE` / `BLOCKED`. Backend and frontend tasks with no dependency between them may run concurrently, one per implementer, within `max_agents`.
-2. **Review and QA in parallel.** Spawn in **one message**: a new `code-reviewer`, plus a new `security-auditor` if the task is tagged `security`, plus `ui-ux-designer` for design QA if tagged `ui`, plus `qa-engineer` ("QA T{id}") — all on the same commit range. Brief each with the task row, the relevant spec/design sections and the task notes. If that exceeds `max_agents`, start `code-reviewer` and `qa-engineer` first and queue the rest.
+1. → the task's Owner (`developer` or `pwa-frontend-engineer`): "Implement T{id}" + the task's rule packs and must-read files. Wait for `DONE` / `BLOCKED`, then apply the DONE gate (`## Rule compliance` table complete, with evidence) before starting review. Backend and frontend tasks with no dependency between them may run concurrently, one per implementer, within `max_agents`.
+2. **Review and QA in parallel.** Spawn in **one message**: a new `code-reviewer`, plus a new `security-auditor` if the task is tagged `security`, plus `ui-ux-designer` for design QA if tagged `ui`, plus `qa-engineer` ("QA T{id}") — all on the same commit range. Brief each with the task row, the relevant spec/design sections, the task notes, and the rule packs that role verifies with their must-read files; each returns a `## Rule check T{id}` table with its verdict. If that exceeds `max_agents`, start `code-reviewer` and `qa-engineer` first and queue the rest.
    - Reviewers do not run test suites, lint or builds: the implementer's notes carry that output. A reviewer may run one specific test via the wrapper to prove a finding.
    - QA does not rerun the implementer's tests: it checks acceptance criteria and contracts, adds missing integration/e2e tests and runs those, and does browser testing for tasks tagged `ui`, `pwa` or `mobile`. Claude in Chrome is shared with the user: QA that needs it runs for one task at a time; Lightpanda and Playwright headless runs (own processes per QA agent) may run in parallel within the resource budget. If QA reports that the browser needs the user (extension not installed/signed in, dialog to dismiss), relay it to the user.
    - A `code-reviewer` finding tagged `→ security` on an untagged task → spawn a `security-auditor` for that task then.
-3. Merge all blocker/major/critical/high findings and `QA_FAIL` defects into **one** fix request to the task's Owner. After the fix, send re-verification only to the reviewers/QA that raised issues (via `SendMessage`), in parallel. **Max 3 rounds**; then mark `blocked` and report to the user.
-4. Mark `done`. Independent tasks (no shared files, no dependency) may run with a second developer instance using `isolation: "worktree"`, only when there are ≥ 4 independent tasks and `max_agents` allows.
+3. Merge all blocker/major/critical/high findings, `QA_FAIL` defects and rule-check `fail`s (by rule ID) into **one** fix request to the task's Owner. After the fix, send re-verification only to the reviewers/QA that raised issues (via `SendMessage`), in parallel. **Max 3 rounds**; then mark `blocked` and report to the user.
+4. Mark `done` once coverage holds — every rule ID `pass` from at least one verifier; record `unverified` rule IDs next to the task and append this task's `fail`s to `_workspace/rule-violations.md`. Independent tasks (no shared files, no dependency) may run with a second developer instance using `isolation: "worktree"`, only when there are ≥ 4 independent tasks and `max_agents` allows.
 
 **Test cost.** Per task, the implementer runs only the tests related to the change (the task's own tests, the suites for the touched modules, and the fast guards), via the wrapper. The full suite runs once at feature sign-off (QA), or earlier only when a change touches shared infrastructure. When the project's test runner is a shared, serial resource (one database, one container), say so in the brief.
 
 After the last task: qa-engineer runs feature sign-off (full suite, once).
 
 ## Phase 5 — Final review (Workflow)
-Build `args.dimensions` from the flags: always `correctness` (code-reviewer); `security` if `security_sensitive` or any `security` task; `ui` if `has_ui`. Pass `args.scope` (file list or `git diff` range), spec/design paths, `args.agentPrefix` (`'ai-dev-team:'` by default) and `args.maxAgents` (the profile's `max_agents`; the workflow never runs more agents than that at once). Then call Workflow with this script:
-
-```javascript
-export const meta = {
-  name: 'dev-team-final-review',
-  description: 'Review the feature per dimension, then adversarially verify serious findings',
-  phases: [{ title: 'Review' }, { title: 'Verify' }],
-}
-
-const FINDINGS = { type: 'object', required: ['findings'], properties: {
-  findings: { type: 'array', items: { type: 'object',
-    required: ['title', 'file', 'severity', 'scenario', 'fix'], properties: {
-      title: { type: 'string' }, file: { type: 'string' }, line: { type: 'integer' },
-      severity: { type: 'string', enum: ['critical', 'high', 'blocker', 'major', 'medium', 'minor', 'low'] },
-      scenario: { type: 'string' }, fix: { type: 'string' } } } } } }
-const VERDICT = { type: 'object', required: ['status', 'reason'], properties: {
-  status: { type: 'string', enum: ['confirmed', 'refuted', 'uncertain'] },
-  reason: { type: 'string' } } }
-
-// Plugin agents are namespaced; the leader passes the prefix it sees in the agent list.
-const P = args.agentPrefix ?? 'ai-dev-team:'
-const AGENT = { correctness: `${P}code-reviewer`, security: `${P}security-auditor`, ui: `${P}ui-ux-designer` }
-const SKILL = { correctness: `${P}code-review-checklist`, security: `${P}security-review-checklist`, ui: `${P}ui-ux-design (Design QA section)` }
-const SERIOUS = ['critical', 'high', 'blocker', 'major']
-const ctx = `Scope: ${args.scope}\nSpec: ${args.specPath}\nDesign: ${args.designPath}\nDo not run test suites, builds or audits: QA sign-off already ran the full suite. Run at most one specific test via .claude/team/run-heavy.sh to prove a finding.`
-
-// Shared cap on concurrent agents so the final review stays inside the resource budget.
-const LIMIT = Math.max(1, args.maxAgents ?? 4)
-let active = 0
-const waiting = []
-const slot = async run => {
-  while (active >= LIMIT) await new Promise(resolve => waiting.push(resolve))
-  active++
-  try { return await run() } finally { active--; waiting.shift()?.() }
-}
-
-const results = await pipeline(
-  args.dimensions,
-  d => slot(() => agent(
-    `Final ${d} review of the feature. Follow the ${SKILL[d]} skill.\n${ctx}\nReturn findings JSON only; empty array if none.`,
-    { agentType: AGENT[d], label: `review:${d}`, phase: 'Review', schema: FINDINGS }))
-    .then(r => (r ? r.findings.map(f => ({ ...f, dimension: d })) : null)),
-  findings => findings === null ? null : parallel(findings.map(f => () =>
-    SERIOUS.includes(f.severity)
-      ? slot(() => agent(
-          `Adversarially verify this finding. Try to refute it by reading the code, callers, guards and tests. confirmed = reachable failure; refuted = prevented; uncertain = cannot decide.\n${JSON.stringify(f)}\n${ctx}`,
-          { agentType: AGENT[f.dimension], label: `verify:${f.file}`, phase: 'Verify', schema: VERDICT, effort: 'high' }))
-          .then(v => ({ ...f, verdict: v ?? { status: 'uncertain', reason: 'verifier failed' } }))
-      : Promise.resolve({ ...f, verdict: { status: 'unverified', reason: 'minor severity' } })))
-)
-
-const missing = results.filter(r => r === null).length
-if (missing) log(`${missing} review dimension(s) failed and are missing from the result`)
-const all = results.filter(Boolean).flat().filter(Boolean)
-const confirmed = all.filter(f => f.verdict.status === 'confirmed')
-const uncertain = all.filter(f => f.verdict.status === 'uncertain')
-const minor = all.filter(f => f.verdict.status === 'unverified')
-log(`${all.length} findings: ${confirmed.length} confirmed, ${uncertain.length} uncertain, ${minor.length} minor`)
-return { confirmed, uncertain, minor, missingDimensions: missing }
-```
+Build `args.dimensions` from the flags: always `correctness` (code-reviewer); `security` if `security_sensitive` or any `security` task; `ui` if `has_ui`. Pass `args.scope` (file list or `git diff` range), spec/design paths, `args.agentPrefix` (`'ai-dev-team:'` by default) and `args.maxAgents` (the profile's `max_agents`; the workflow never runs more agents than that at once). Then call Workflow with `scriptPath` set to the absolute path of `references/final-review.workflow.js` in this skill's base directory (if the path cannot be passed, Read that file and pass its content as `script`). The script reviews each dimension, adversarially verifies serious findings, caps concurrency at `maxAgents`, and returns `{ confirmed, uncertain, minor, missingDimensions }`.
 
 Write the returned `runId` to `_workspace/run_meta.json`. Wait for the completion notification; never predict results. Then:
 - `confirmed` → back to Phase 4 for fixes (counts as a new round), then re-run only the affected dimension (resume the workflow).
@@ -175,7 +125,7 @@ Write the returned `runId` to `_workspace/run_meta.json`. Wait for the completio
 - Save the full result to `_workspace/06_final_review.json`.
 
 ## Phase 6 — Report (to the user, in their language)
-Summary of what was built, files changed, test/QA results with real numbers, review outcome (confirmed fixed / uncertain / minor), anything skipped or blocked and why. Do not commit unless the user asks; commit messages follow the developer rules (English, imperative, no AI attribution).
+Summary of what was built, files changed, test/QA results with real numbers, review outcome (confirmed fixed / uncertain / minor), rule compliance (rule IDs left `unverified`, rules that failed in two or more tasks), anything skipped or blocked and why. Do not commit unless the user asks; commit messages follow the developer rules (English, imperative, no AI attribution).
 
 ## Data passing
 - Files in `_workspace/` named `{phase}_{agent}_{artifact}.{ext}`; final deliverables are the code in the repo. Keep `_workspace/` for audit.
@@ -193,20 +143,4 @@ Summary of what was built, files changed, test/QA results with real numbers, rev
 | 3 fix rounds exhausted | Mark task `blocked`, stop dependent tasks, report with the developer's root-cause analysis. |
 
 ## Test scenarios
-
-### Normal flow
-1. User: "Add password reset by email." Profile exists (Symfony + React).
-2. Architect (spec mode) returns spec with `has_ui=true`, `security_sensitive=true`, 1 open question (token TTL; default 30 min) → user accepts default.
-3. Architect writes the spec; design phase continues the same architect + designer + security in parallel; architect reconciles → 5 tasks (2 tagged security, 1 tagged ui).
-4. Build loop: T2's code-reviewer, security-auditor and QA run in parallel; security reports `high` (token not single-use) → developer fixes → security re-review `SECURE`; QA_PASS stands.
-5. Final review workflow: 3 dimensions, 1 minor finding. Report lists 5 tasks done, all ACs pass.
-
-### Normal flow — new template pack
-1. User: "Add a 'corporate' template." Profile: Vue 3 + reka-ui, PWA, Capacitor.
-2. Designer specs tokens + per-component recipe changes; pwa-frontend-engineer copies `src/templates/default/` → `corporate/`, edits only tokens/recipes/shells.
-3. Code-reviewer confirms `git diff` touches no file under `src/ui/core/` or `src/features/`; type-check proves the contract is complete; QA runs component tests against both templates.
-
-### Error flow
-1. During Phase 5 the `ui` dimension agent fails twice → returns null.
-2. Workflow logs "1 review dimension(s) failed"; result has `missingDimensions: 1`.
-3. Leader reports the missing UI review in Phase 6 and offers to resume it via `resumeFromRunId`.
+Expected normal and error flows are in `references/test-scenarios.md` (read when changing or evaluating this skill).
