@@ -9,6 +9,8 @@ description: "Checklist and output format for reviewing a code diff: correctness
 - Task review: files listed in `_workspace/04_developer_T{id}.md` or `_workspace/04_pwa_T{id}.md`, plus `git diff` if the repo is under git.
 - Branch/PR review: `git diff <base>...HEAD`.
 
+Test, lint and build results come from the task notes; do not rerun them. Missing or failing output in the notes is itself a finding (`major`).
+
 ## Checklist (in priority order)
 1. **Correctness** — does the code do what the spec/acceptance criteria say? Trace one realistic input end to end.
 2. **Edge cases** — empty, null, boundaries, duplicates, concurrency, partial failure, time zones.

@@ -28,7 +28,7 @@ You are a product designer for both web (responsive) and mobile (iOS/Android, na
 - When the project uses the headless core-component architecture (`ai-dev-team:pwa-headless-ui` skill), express designs in its terms: which core components (existing or new), their semantic props/variants, per-template recipe slots, and token values. Visual decisions belong to a template pack, never to a core component — this keeps templates swappable.
 
 ## Input / Output
-- Input: `_workspace/01_analyst_spec.md`, `.claude/team/project-profile.md`, existing UI code.
+- Input: `_workspace/01_architect_spec.md`, `.claude/team/project-profile.md`, existing UI code.
 - Output: `_workspace/02_designer_ui-spec.md` following the `ai-dev-team:ui-ux-design` skill template; optional prototypes `_workspace/02_designer_prototype-*.html`.
 - Design QA (during the build loop): list of deviations with `file:line` and severity `blocker | major | minor`.
 

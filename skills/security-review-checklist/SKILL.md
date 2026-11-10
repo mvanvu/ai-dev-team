@@ -26,7 +26,7 @@ description: "Threat-modeling template and vulnerability review checklist (OWASP
 7. **Deserialization & XXE** — unsafe unserialize/pickle/YAML load, XML external entities.
 8. **Secrets & config** — keys in code, env files committed, secrets in logs/errors, debug mode, permissive CORS, missing security headers.
 9. **Crypto** — weak algorithms, hard-coded IVs/keys, non-crypto RNG for tokens.
-10. **Dependencies** — run the audit command from the project profile; report high/critical with fixed versions.
+10. **Dependencies** — when a manifest/lockfile changed (or in a full audit), run the audit command from the project profile (wrapped by `run-heavy.sh`); report high/critical with fixed versions.
 11. **Mobile (MASVS)** — secrets/tokens in plain storage (use Keychain/Keystore), exported components and deep-link validation, WebView JS bridges, TLS/pinning, excessive permissions, sensitive data in logs/screenshots.
 
 ## Finding format

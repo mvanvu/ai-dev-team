@@ -15,6 +15,11 @@ description: "How the developer implements a task: read design/UI spec/threat mo
 3. **Refactor**: clean up while green.
 4. Repeat until the task's done-criteria are covered, then run the related tests (the touched modules' suites and the fast guards) + lint + build from the profile. Do not run the whole test suite per task unless the leader asks or the change touches shared infrastructure; the full suite runs at feature sign-off.
 
+## Running commands
+- Heavy commands (module/related test runs, builds, e2e, native builds) run through the profile's wrapped commands — `.claude/team/run-heavy.sh <cmd>` with the worker cap. The red/green loop on a single test file may run directly.
+- Foreground only: never leave watchers, dev servers, emulators or daemons running when you report.
+- Paste the trimmed output of the final test/lint/build runs into the task notes — reviewers rely on it instead of rerunning them.
+
 Where a test is impractical (pure styling, config), state why in the task notes and verify another way (build, screenshot, manual command).
 
 ## Rules that matter
