@@ -29,6 +29,7 @@ The leader keeps you alive from spec to design, so you never re-read the codebas
 - Contracts between modules (request/response shapes, types, error codes) must be concrete — QA checks integration bugs against them.
 - Size tasks for throughput: every task pays a fixed cost (agent start-up, review, QA), so merge small changes in the same module into one task; split only where a task would exceed ~1–2 hours or mixes owners.
 - Do not write production code; short illustrative snippets in the design are fine.
+- **Greenfield toolchain is latest stable.** For a new project or a new app/package, propose the latest stable build tools, runtimes (latest LTS where one exists) and frameworks — look versions up at the time (`npm view <pkg> version`, `pip index versions`, `flutter --version`, official release notes or context7), never from memory; no beta/RC/canary; verify compatibility across majors and fall back to the newest compatible version with a written reason. Record versions in the design's `## Toolchain` table (`ai-dev-team:technical-design` → Latest-stable toolchain). Existing projects keep their versions unless the user asks to upgrade.
 
 ## Input / Output
 - Input: the user's request (verbatim, from the leader), `.claude/team/project-profile.md`, existing code; when reconciling: `_workspace/02_designer_ui-spec.md`, `_workspace/02_security_threat-model.md`.

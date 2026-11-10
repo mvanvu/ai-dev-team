@@ -1,6 +1,6 @@
 ---
 name: security-review-checklist
-description: "Threat-modeling template and vulnerability review checklist (OWASP Top 10, OWASP MASVS for mobile, authn/authz, secrets, dependencies) with finding format and structured output. Used by security-auditor and the dev-team final review workflow. For a full standalone codebase audit or pen-test report, use the global security-audit skill instead."
+description: "Threat-modeling template and vulnerability review checklist (OWASP Top 10, OWASP API Top 10, OWASP MASVS for mobile, authn/authz, secrets, dependencies, automated abuse by scrapers/bots/AI crawlers and agents) with finding format and structured output. Used by security-auditor and the dev-team final review workflow. For a full standalone codebase audit or pen-test report, use the global security-audit skill instead."
 ---
 
 # Security review checklist
@@ -12,13 +12,14 @@ description: "Threat-modeling template and vulnerability review checklist (OWASP
 ## Trust boundaries & data flows
 ## Threats (STRIDE per flow)
 | Flow | Threat | Category | Likelihood | Impact | Mitigation → task |
+## Automated abuse (scrapers, bots, AI crawlers/agents) — one row per public flow, see references/automated-abuse.md
 ## Security requirements for implementation
 - SR1: ...
 ```
 
 ## Code review checklist
 1. **Injection** — SQL/NoSQL, OS command, LDAP, template injection; trace every untrusted input to its sink.
-2. **Broken access control** — authorization on every endpoint/handler/resolver; IDOR (object IDs from the client); privilege escalation via mass assignment.
+2. **Broken access control** — authorization on every endpoint/handler/resolver; IDOR (object IDs from the client); privilege escalation via mass assignment. Trash/restore/purge need their own permission plus the view-trash permission (names follow the project's scheme) and purge only trashed rows; bulk/batch endpoints repeat every per-row authorization check and cap the number of ids (`ai-dev-team:technical-design` → `references/record-lifecycle.md`).
 3. **Authentication & sessions** — password storage (bcrypt/argon2), JWT validation (alg, expiry, signature), session fixation, CSRF on state-changing requests, rate limiting on login/OTP.
 4. **XSS & output** — unescaped output, `dangerouslySetInnerHTML`/`v-html`/`|raw`, unsafe URL schemes.
 5. **SSRF & redirects** — user-controlled URLs fetched server-side; open redirects.
@@ -28,6 +29,7 @@ description: "Threat-modeling template and vulnerability review checklist (OWASP
 9. **Crypto** — weak algorithms, hard-coded IVs/keys, non-crypto RNG for tokens.
 10. **Dependencies** — when a manifest/lockfile changed (or in a full audit), run the audit command from the project profile (wrapped by `run-heavy.sh`); report high/critical with fixed versions.
 11. **Mobile (MASVS)** — secrets/tokens in plain storage (use Keychain/Keystore), exported components and deep-link validation, WebView JS bridges, TLS/pinning, excessive permissions, sensitive data in logs/screenshots.
+12. **Automated abuse & resource consumption** — raw data exposure (response allowlists, enumerable IDs, unbounded list/search/export), rate limits by IP and identity, size limits and timeouts, GraphQL limits, bot and AI-crawler controls, challenges on sensitive business flows, quotas and authorization for the app's own AI features and agent APIs. Read `references/automated-abuse.md` for the controls and severity guide.
 
 ## Finding format
 ```
@@ -44,4 +46,4 @@ Severity: `critical | high | medium | low`. Verdict: `SECURE` or `ISSUES_FOUND`.
 { "findings": [ { "title": "", "file": "", "line": 0, "severity": "critical|high|medium|low", "cwe": "", "scenario": "", "fix": "" } ] }
 ```
 
-Never run exploits against real systems or third-party services; analysis is static plus local tests only.
+Never run exploits against real systems or third-party services; analysis is static plus local tests only. No load, stress, flood or fuzzing tools, active scanners or crawlers against any shared, staging or production system — see `references/automated-abuse.md` §11.

@@ -14,6 +14,7 @@ Goal: the PWA should feel like a native app on a phone — instant feedback on t
 9. Device APIs & haptics
 10. Motion tokens in templates
 11. Performance budget & verification
+12. Rendering performance in Vue / React
 
 ## 1. Library stack
 
@@ -25,6 +26,7 @@ Goal: the PWA should feel like a native app on a phone — instant feedback on t
 | Bottom sheet / drawer | core `UiSheet` = Reka `Dialog` + `motion-v` drag (default) | core `UiSheet` = Radix `Dialog` + `motion` drag (default) |
 | Toasts | `vue-sonner` | `sonner` |
 | Virtualized lists | `@tanstack/vue-virtual` | `@tanstack/react-virtual` |
+| Data tables (column visibility, selection, manual sort) | `@tanstack/vue-table` (inside `UiDataList`) | `@tanstack/react-table` (inside `UiDataList`) |
 | Server state, optimistic UI, cache | `@tanstack/vue-query` | `@tanstack/react-query` |
 | Persist query cache (instant offline launch) | `@tanstack/query-persist-client-core` + `@tanstack/query-async-storage-persister` + `idb-keyval` | `@tanstack/react-query-persist-client` + `@tanstack/query-async-storage-persister` + `idb-keyval` |
 | Haptics | `@capacitor/haptics` (native app), `navigator.vibrate` fallback (Android web only) | same |
@@ -36,7 +38,7 @@ Before adding a library, check it is maintained (recent releases, open issue act
 
 - Interaction libraries are used **only inside `src/ui/core/` and template shells**. Features get native feel by using core components (`UiSheet`, `UiPullToRefresh`, `UiSwipeAction`, `UiVirtualList`, `UiToaster`, `UiPage`), never by importing the libraries.
 - Motion *values* (durations, easings, spring stiffness/damping) come from the active template (section 10), so a template can be snappy or calm without touching components.
-- Extend the ESLint `no-restricted-imports` group for `src/features/**` and `src/pages/**` with: `motion`, `motion-v`, `motion/*`, `vaul`, `vaul-vue`, `sonner`, `vue-sonner`, `@use-gesture/*`, `@tanstack/*-virtual`.
+- Extend the ESLint `no-restricted-imports` group for `src/features/**` and `src/pages/**` with: `motion`, `motion-v`, `motion/*`, `vaul`, `vaul-vue`, `sonner`, `vue-sonner`, `@use-gesture/*`, `@tanstack/*-virtual`, `@tanstack/*-table`.
 - TanStack Query is the exception: features use it directly through composables/hooks in `src/features/**/api/` (it is data, not UI).
 
 ## 3. Navigation & page transitions
@@ -130,7 +132,7 @@ Wrap each in `src/native/` with feature detection and a no-op fallback:
 - Web Share (`navigator.share`) / `@capacitor/share`.
 - Badging API (`navigator.setAppBadge`) for unread counts.
 - Screen Wake Lock for scanning/reading flows.
-- Network status → offline banner + queued mutations (TanStack Query `networkMode`).
+- Network status → offline banner / offline screen, automatic reconnect and queued mutations — see `connectivity.md`.
 
 ## 10. Motion tokens in templates
 
@@ -152,3 +154,31 @@ Templates also expose the durations/easings as CSS variables (`--motion-fast`, `
 - Targets on a mid-range Android device: INP < 200ms, CLS < 0.1, LCP < 2.5s, no dropped frames during transitions in the DevTools Performance panel (CPU throttling 4x).
 - Initial JS for the first route ≤ ~170KB gzipped; lazy-load routes and heavy libraries (charts, editors).
 - Verify on real devices (iOS Safari standalone + Android Chrome installed PWA + Capacitor builds): gestures don't conflict with system gestures, keyboard doesn't cover focused inputs, safe areas correct in both orientations, reduced-motion respected.
+
+## 12. Rendering performance in Vue / React
+
+Smooth motion is lost when the framework re-renders during a gesture or a long task blocks the main thread. These rules apply to every build and matter most inside a WebView (see `capacitor-native-feel.md`).
+
+**Both frameworks**
+- Gesture and animation values never go through framework state: drive `transform` from Motion values (`useMotionValue` / `useTransform` in `motion` and `motion-v`) so `pointermove` causes zero component re-renders. Commit to state only on release.
+- No task over 50ms on the main thread during interaction: move parsing, sorting, diffing, crypto and image processing to a Web Worker (`comlink`); split remaining long work with `scheduler.yield()` (feature-detected, fallback `setTimeout(0)`).
+- Listeners for `touchstart`/`touchmove`/`wheel`/`scroll` are `{ passive: true }`; no scroll listeners for layout effects (use `position: sticky`, `IntersectionObserver`, CSS scroll-driven animations).
+- `will-change: transform` only while an element is animating or being dragged, removed afterwards — permanent layers exhaust WebView GPU memory on low-end Android.
+- Route-level code splitting plus prefetch of the next likely route on link visibility or `touchstart`; heavy widgets (charts, editors, maps) load on demand.
+- Search/filter inputs: update the input immediately, defer the expensive result (debounce or a deferred value), never re-filter a large list on every keystroke synchronously.
+
+**Vue 3**
+- Large or external objects (API collections, map/chart/editor instances) live in `shallowRef` or are wrapped with `markRaw`; deep reactivity on thousands of rows is the most common Vue slowdown.
+- `v-memo` on rows of long non-virtualized lists; `v-once` for static content; stable `:key`s.
+- Avoid inline object/array/function props in hot lists — each render creates a new value and re-renders the child; hoist them or use `computed`.
+- `computed` over methods in templates; no `deep: true` watchers on large structures.
+- `<KeepAlive :max="N">` around stack pages so back navigation is instant and scroll is preserved, with a cap to bound memory.
+- Pinia: keep big collections in `shallowRef` state or in the TanStack Query cache, not in deeply reactive store state.
+
+**React**
+- Enable the React Compiler (`babel-plugin-react-compiler`) for automatic memoization; without it, `memo` list rows and stabilize callbacks/objects passed to them.
+- `useTransition` / `useDeferredValue` for filtering, tab switches and other non-urgent updates so taps and typing stay responsive.
+- Fast-changing shared values do not go in React Context (every consumer re-renders); use a store with selectors (`zustand` or `useSyncExternalStore`) or keep them local.
+- Keep stack pages alive with `<Activity mode="hidden">` (React 19.2+) or keep list routes mounted, so back navigation does not remount and refetch.
+- Colocate state with the component that uses it; lift only what must be shared.
+
