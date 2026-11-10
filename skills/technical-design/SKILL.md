@@ -73,5 +73,5 @@ New projects — and new apps or packages added to an existing repo — start on
 | T3 | Order list + form screens | pwa-frontend-engineer | T2 | ui | ARCH, COMPACT, LIST, LIFE | web/... | `<test cmd>` | todo |
 ```
 Owner: `pwa-frontend-engineer` for all frontend and mobile app work (screens, core components, templates, PWA, Flutter / Capacitor / native); `developer` for backend, data, infrastructure and non-UI code. Tags: `ui`, `pwa`, `mobile`, `security`.
-Rules: rule pack IDs from `ai-dev-team:dev-team` → `references/rule-packs.md` (`BASE` applies to every task and is not written). The implementer reports one row per rule ID; reviewers and QA re-check them.
+Rules: rule pack IDs from `ai-dev-team:dev-team` → `references/rule-packs.md` (`BASE` and `COST` apply to every task and are not written). The implementer reports one row per rule ID; reviewers and QA re-check them.
 Status values: `todo | in-progress | review | qa | done | blocked | needs-rework`. The leader owns status updates.

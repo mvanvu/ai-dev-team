@@ -20,7 +20,7 @@ Run QA incrementally after each task — not once at the end. Most integration b
 6. Append results to the QA report and send the verdict to the leader.
 
 ## Feature sign-off
-Run the full suite once (through the wrapper) and confirm every acceptance criterion is `pass`. List any `not-tested` with the reason.
+One QA agent runs sign-off. Run the full suite once (through the wrapper); a failure is rerun per file (up to 3×), never the whole suite again. Browser: cross-task flows plus one overflow run over the touched screens; cite per-task artifacts for per-screen visuals (`ai-dev-team:dev-team` → `references/resource-budget.md` §5). Confirm every acceptance criterion is `pass`. List any `not-tested` with the reason.
 
 ## Defect format
 ```

@@ -61,7 +61,7 @@ Uses the user's real desktop Chrome, so it is the heaviest option and is shared 
 **None available**: mark browser-only criteria `not-tested`, state the reason, and tell the leader what the user can enable: Lightpanda (headless criteria), Node + `npx playwright install chromium --only-shell` (visual criteria), or the Claude in Chrome extension.
 
 ## 2. Session rules
-- Lightpanda and Playwright (L, P, M) run in the QA agent's own processes and ports, so several QA agents may use them in parallel within the resource budget. Stop every process you started.
+- Browser budget: `ai-dev-team:dev-team` → `references/resource-budget.md` (`COST`). P and M runs go through `run-heavy.sh` with one launch covering all URLs and widths; only Lightpanda runs may overlap with other agents. Stop every process you started.
 - Claude in Chrome (A) is shared with the user: only one QA agent drives it at a time (the leader serializes it); never reuse tab IDs from another session; create your own tab with `tabs_create_mcp` and close it when done; only touch the user's existing tabs if the leader says the user asked for it.
 - In A, do not trigger `alert` / `confirm` / `prompt` dialogs — they freeze the extension. Before clicking anything that may open one, check with `javascript_tool`; if it uses a native dialog, test that path on P instead. If a dialog does open, stop and report that the user must dismiss it.
 - Filter console output for `error|warn|Uncaught` instead of dumping everything.
@@ -79,13 +79,13 @@ Uses the user's real desktop Chrome, so it is the heaviest option and is shared 
 6. Stop the dev server and any browser process you started.
 
 ## 4. Mobile-first viewports
-Run every UI criterion at mobile first, then desktop (`page.setViewportSize` / device descriptors on P, `browser_resize` on M, `resize_window` on A):
+Run every UI criterion at mobile first, then desktop (`page.setViewportSize` / device descriptors on P, `browser_resize` on M, `resize_window` on A). Every width tier and every theme is checked in one sweep run — `ai-dev-team:dev-team` → `references/resource-budget.md` §3. The profile's `ui_widths` replace this default list:
 - Mobile: 390×844 (also 360×800 for narrow Android when layout is tight); use `isMobile` + `hasTouch` device descriptors on P
 - Tablet (if the spec mentions it): 768×1024
 - Desktop: 1280×800
 Check at each size: correct shell (bottom nav vs sidebar), no horizontal scroll, touch targets ≥ 44px, all UI-spec states reachable (loading, empty, error, success, disabled; offline and reconnecting for mobile apps).
 
-At both mobile sizes also run the compact-layout checks (`ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7) on P with worst-case content (longest locale, long unbroken strings, large amounts) and again at font scale 130%: `.claude/team/overflow-check.mjs` reports no offenders, adjacent button pairs that fit share one row, icon/text rows leave no dead space. Attach one long-content screenshot per screen.
+At both mobile sizes also run the compact-layout checks (`ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7) on P with worst-case content (longest locale, long unbroken strings, large amounts) and again at font scale 130%: `.claude/team/overflow-check.mjs` reports no offenders, adjacent button pairs that fit share one row, icon/text rows leave no dead space. Attach the contact sheet per screen (`--sheet`).
 
 ## 5. PWA checks in the browser (P on Chromium, A as fallback)
 - Manifest and service worker: `page.evaluate(() => navigator.serviceWorker.getRegistration())` resolves with an active worker (or `context.serviceWorkers()`); `link[rel=manifest]` present.
@@ -106,3 +106,4 @@ Add to the QA report per criterion: engine used (L/P-chromium/P-webkit/M/A, plus
 | Page doesn't load / dev server fails | Capture the server log, report `QA_BLOCKED` |
 | Native dialog froze Chrome (A) | Stop; report that the user must dismiss it in Chrome |
 | Flaky step (timing) | Wait for a concrete condition (text/element) and retry once; then report as flaky |
+| Waiting for a queued heavy command | Run `run-heavy.sh` in the foreground — it queues by itself; no `sleep` or `pgrep` loops (`COST-4`) |

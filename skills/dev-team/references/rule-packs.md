@@ -26,6 +26,7 @@ Paths are relative to the plugin's `skills/` directory. "Verified by" names the 
 | Pack | Applies when the task… | Must read | Numbered checks | Verified by |
 |---|---|---|---|---|
 | `BASE` | always | this file §3 | §3 | code-reviewer |
+| `COST` | always (implied like `BASE`, not written in the `Rules` column) — governs tests and browser checks of implementers, QA and design QA | `dev-team/references/resource-budget.md` | §7 | qa-engineer (own runs), leader (DONE gate) |
 | `TOOL` | scaffolds a new project, app or package | `technical-design/SKILL.md` → Latest-stable toolchain | this file §4 | code-reviewer |
 | `ARCH` | adds or changes web frontend code on the headless core-component architecture | `pwa-headless-ui/SKILL.md`, `pwa-headless-ui/references/architecture.md` | `architecture.md` §9 | code-reviewer |
 | `COMPACT` | builds or changes a phone-sized screen (mobile web, PWA, Capacitor, Flutter, native) | `pwa-headless-ui/references/compact-layout.md` | §7 | qa-engineer, ui-ux-designer |
@@ -66,10 +67,10 @@ A check that names a tool or environment the task cannot use (a device, Xcode, a
 4. Any tool held below latest stable has its reason in the notes.
 
 ## 5. Assigning packs to tasks (architect)
-For every task, walk the "Applies when" column and list each matching pack in the task board's `Rules` column (`BASE` is implied and not written). Assign by what the task touches, not only by its tags — a backend task for a CRUD entity gets `LIFE`, a list endpoint gets `ABUSE` and `QUERY`. When unsure whether a pack applies, assign it: an `n-a` row costs less than a missed rule.
+For every task, walk the "Applies when" column and list each matching pack in the task board's `Rules` column (`BASE` and `COST` are implied and not written). Assign by what the task touches, not only by its tags — a backend task for a CRUD entity gets `LIFE`, a list endpoint gets `ABUSE` and `QUERY`. When unsure whether a pack applies, assign it: an `n-a` row costs less than a missed rule.
 
 ## 6. Compliance report (implementer)
-Before coding, read every must-read file of the assigned packs. Before reporting `DONE`, add this section to the task notes, one row per rule ID of every assigned pack plus `BASE`:
+Before coding, read every must-read file of the assigned packs. Before reporting `DONE`, add this section to the task notes, one row per rule ID of every assigned pack plus `BASE` and `COST`:
 
 ```markdown
 ## Rule compliance
@@ -122,7 +123,7 @@ Rules a script can decide are decided by the script, not by reading. `repo-scout
 | `LIST-4` (list state in web storage) | `.claude/team/rule-checks.sh list-storage` — hits are candidates; confirm each | implementer, code-reviewer |
 | `BASE-7` | `.claude/team/rule-checks.sh commits [base]` — only when commits were made | implementer, code-reviewer |
 | `TOOL-2` | `.claude/team/rule-checks.sh prerelease` | implementer, code-reviewer |
-| `COMPACT-1`, `COMPACT-2`, `COMPACT-7` | `.claude/team/run-heavy.sh node .claude/team/overflow-check.mjs --shots _workspace/qa-artifacts <url>...` on the screens the task touched, loaded with worst-case content | implementer (when the app can run), qa-engineer |
+| `COMPACT-1`, `COMPACT-2`, `COMPACT-7` | `.claude/team/run-heavy.sh node .claude/team/overflow-check.mjs --widths <ui_widths> --themes <ui_themes> --shots _workspace/qa-artifacts/T{id} --sheet <url>...` on the screens the task touched, loaded with worst-case content | implementer (when the app can run), qa-engineer |
 | `COMPACT-6` (Flutter) | `.claude/team/rule-checks.sh flutter-overflow <saved flutter test output>` | implementer, qa-engineer |
 
 | `REAL-2`, `REAL-4` | `.claude/team/rule-checks.sh ai-look` — hits are candidates (seed data in fixtures, a brief that asks for gradient text); confirm each | implementer, ui-ux-designer |
