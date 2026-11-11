@@ -38,10 +38,10 @@ Lightpanda is a headless browser without a graphical rendering engine: it runs J
 `chromium-headless-shell` is Chromium's rendering engine without the browser UI, extensions or profile: real layout, screenshots, service workers and DevTools protocol at a much lower cost than desktop Chrome. Playwright uses it for `headless: true` launches.
 1. Runner, in this order:
    - The project's Playwright e2e setup (project profile) — add or run specs there for the task's criteria.
-   - Otherwise a QC script outside the project manifest: set up once in `_workspace/qa-tools/` (`npm init -y && npm i -D playwright@latest`), install only the shell `npx playwright install chromium --only-shell`, and keep scripts in `_workspace/qa-artifacts/`. Never add dependencies to the project for QA scripts.
+   - Otherwise a QC script outside the project manifest: set up once in `$TEAM_TOOLS` (`npm init -y && npm i -D playwright@latest`), install only the shell `npx playwright install chromium --only-shell`, and keep scripts in `$TEAM_WS/qa-artifacts/`. Never add dependencies to the project for QA scripts.
 2. Launch `chromium.launch({ headless: true })` (do not set a `channel`, which would switch to full Chrome). Use a `browser.newContext()` per scenario with the mobile device descriptor (`devices['Pixel 7']`, `devices['iPhone 15']`) for mobile runs.
 3. **WebKit** for criteria that depend on iOS Safari / WKWebView behavior (PWA on iOS, Capacitor iOS, safe areas, iOS-only CSS): `npx playwright install webkit`. If WebKit's system libraries are missing (install needs root via `--with-deps`), report those criteria `not-run` with the command the user must run; do not use `sudo`.
-4. Run scripts and e2e through `.claude/team/run-heavy.sh` (they launch a browser process); close the browser in a `finally` block.
+4. Run scripts and e2e through `$TEAM_BIN/run-heavy.sh` (they launch a browser process); close the browser in a `finally` block.
 5. Capabilities used: `page.setViewportSize`, `page.screenshot({ fullPage: true })`, `context` option `recordVideo` for multi-step flows, `page.on('console' | 'pageerror' | 'requestfailed' | 'response')`, `context.setOffline(true|false)`, `context.serviceWorkers()` (Chromium), `page.route()` to block an API host. Native dialogs never freeze it: handle with `page.on('dialog', (d) => d.accept())` when a flow needs one.
 
 **M. Playwright MCP** — when P cannot run here (no Node/npm, no network for the browser download) and `mcp__plugin_playwright_playwright__*` tools exist: load `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`, `browser_fill_form`, `browser_resize`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`, `browser_evaluate` in one ToolSearch call and run the same procedure.
@@ -75,7 +75,7 @@ Uses the user's real desktop Chrome, so it is the heaviest option and is shared 
    - L/P/M: Playwright locators (`getByRole`, `getByText`) and `expect`-style assertions in the script, or the MCP equivalents.
    - A: `find` + `computer` click/type or `form_input`, verify with `read_page` / `get_page_text` / screenshot.
 4. After each flow: check console errors/warnings and network traffic (failed requests, unexpected 4xx/5xx, request/response shapes vs the design contract).
-5. Evidence for multi-step flows: Playwright video (`recordVideo`) or screenshots per step on P; `gif_creator` on A (capture extra frames before and after actions). Name files meaningfully (e.g. `T3_checkout_mobile.webm`) under `_workspace/qa-artifacts/`.
+5. Evidence for multi-step flows: Playwright video (`recordVideo`) or screenshots per step on P; `gif_creator` on A (capture extra frames before and after actions). Name files meaningfully (e.g. `T3_checkout_mobile.webm`) under `$TEAM_WS/qa-artifacts/`.
 6. Stop the dev server and any browser process you started.
 
 ## 4. Mobile-first viewports
@@ -85,7 +85,7 @@ Run every UI criterion at mobile first, then desktop (`page.setViewportSize` / d
 - Desktop: 1280×800
 Check at each size: correct shell (bottom nav vs sidebar), no horizontal scroll, touch targets ≥ 44px, all UI-spec states reachable (loading, empty, error, success, disabled; offline and reconnecting for mobile apps).
 
-At both mobile sizes also run the compact-layout checks (`ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7) on P with worst-case content (longest locale, long unbroken strings, large amounts) and again at font scale 130%: `.claude/team/overflow-check.mjs` reports no offenders, adjacent button pairs that fit share one row, icon/text rows leave no dead space. Attach the contact sheet per screen (`--sheet`).
+At both mobile sizes also run the compact-layout checks (`ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7) on P with worst-case content (longest locale, long unbroken strings, large amounts) and again at font scale 130%: `$TEAM_BIN/overflow-check.mjs` reports no offenders, adjacent button pairs that fit share one row, icon/text rows leave no dead space. Attach the contact sheet per screen (`--sheet`).
 
 ## 5. PWA checks in the browser (P on Chromium, A as fallback)
 - Manifest and service worker: `page.evaluate(() => navigator.serviceWorker.getRegistration())` resolves with an active worker (or `context.serviceWorkers()`); `link[rel=manifest]` present.

@@ -5,7 +5,7 @@ description: "Threat-modeling template and vulnerability review checklist (OWASP
 
 # Security review checklist
 
-## Threat model (planning phase): `_workspace/02_threat-model.md`
+## Threat model (planning phase): `$TEAM_WS/02_threat-model.md`
 ```markdown
 # Threat model: <feature>
 ## Assets (data/capabilities worth protecting)

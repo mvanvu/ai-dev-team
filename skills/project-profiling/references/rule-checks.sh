@@ -3,7 +3,7 @@
 # Each violation is printed as "<RULE-ID> <file>:<line>: <text>"; the output is the
 # evidence for that rule in the task notes (## Rule compliance) and in rule checks.
 #
-# Usage: .claude/team/rule-checks.sh <check> [args...]
+# Usage: $TEAM_BIN/rule-checks.sh <check> [args...]
 #   arch [dir...]           ARCH-1    feature/page code importing headless or interaction libraries, or a template pack
 #   list-storage [dir...]   LIST-4    list state (filters, sort, page, search) kept in web storage
 #   commits [base]          BASE-7    AI attribution in commit messages of base..HEAD (default: upstream, else the

@@ -13,11 +13,12 @@ A good spec lets three different readers (developer, reviewer, qc) read it and u
 3. Write acceptance criteria. Each one: a single observable behavior with concrete data.
    - Good: `Given a cart with 2 items, When the user removes 1, Then the total updates and 1 line remains`.
    - Bad: `The cart works well`.
-4. Walk the edge-case list: empty data, very large data, malformed input, duplicates, concurrency, network loss (mobile apps using online data always get acceptance criteria for the offline screen/banner and automatic reconnect to the same screen), missing permission, expired session, i18n/time zones.
+4. Walk the edge-case list: empty data, very large data, malformed input, duplicates, concurrency, network loss (mobile apps using online data always get acceptance criteria for the offline screen/banner and automatic reconnect to the same screen), missing permission, expired session, i18n/time zones. Media and file features add: animated formats (GIF, animated WebP, APNG) that a static conversion would freeze, SVG, HEIC, transparency, EXIF orientation, very large dimensions.
+   - **Removed or replaced behavior**: when the change removes a feature or replaces a mechanism (a manual rebuild, a cleanup job, a setting), list what it used to create, clean up or repair (stored files, cache entries, rows, jobs) and write an acceptance criterion for who does that now — a prune command, a migration, or an explicit "kept as is" the user agreed to.
 5. Set flags `has_ui` and `security_sensitive` (auth, authorization, PII, payments, uploads, external input, third-party integrations).
 6. Open questions: only ask what changes behavior; each comes with a proposed default.
 
-## Template: `_workspace/01_spec.md`
+## Template: `$TEAM_WS/01_spec.md`
 
 ```markdown
 # Spec: <feature name>

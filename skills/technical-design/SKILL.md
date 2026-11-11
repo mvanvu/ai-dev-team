@@ -13,7 +13,7 @@ The plan exists so the developer never has to make an architectural decision mid
 3. Define the data model changes (fields, types, constraints, migrations) and **contracts** between modules: endpoint/function signature, request and response shapes with types and nullability, error codes.
 4. Record decisions: for each non-obvious choice, the options considered, the choice and why.
 5. Risks: what can break (migrations, performance, backward compatibility) and mitigation.
-6. Break into tasks: 3–8 for a typical feature, each a coherent slice of one module. Every task pays a fixed cost (agent start-up, review, QC), so merge small changes in the same module; split only past ~1–2 hours of work. Order so each task leaves the build green. Contract-defining tasks (schema, API) come before consumers (UI, mobile). The `Files` column lists every file the task will change, including shared components, stylesheets, language files and tests; two tasks whose files overlap — or that both change the same frontend app's built bundle — get a dependency between them, so the leader never runs them at the same time on one tree.
+6. Break into tasks: 3–8 for a typical feature, each a coherent slice of one module. Every task pays a fixed cost (agent start-up, review, QC), so merge small changes in the same module; split only past ~1–2 hours of work. Order so each task leaves the build green. Contract-defining tasks (schema, API) come before consumers (UI, mobile): a task never mixes server and client code, and every client task lists the server task whose contract it consumes in `Depends on`, so it starts only after that task is `done` (reviewed and QC'd, contract frozen) — never in parallel with it. A task that changes a shared component, style or layout primitive names in `Files` every screen and route that renders it (search its usages; other apps, modes and embedded variants included) so the sweep covers them (`SWEEP-4`). The `Files` column lists every file the task will change, including shared components, stylesheets, language files and tests; two tasks whose files overlap — or that both change the same frontend app's built bundle — get a dependency between them, so the leader never runs them at the same time on one tree.
 6a. Resource lists: plan one list component per resource reused by its page and its picker (`ai-dev-team:pwa-headless-ui` → `references/list-page.md`); every list endpoint contract includes `limit`/`offset` with a server maximum, `search`, allowlisted `order`, the filters, `ids` for picker labels, `{ items, total }` and the permission keys the server returns (user and per row, in the project's own naming).
 6b. CRUD entities: decide per entity whether the lifecycle of `references/record-lifecycle.md` applies (active flag, trash/restore/purge, status filter, server-returned permission keys, bulk actions with single-row rules) — by default yes for user-managed master data, no for child rows, join tables, settings, logs and messages. When the request did not say, it is an open question for the user with the default as the proposal; never add trash, purge or permission endpoints the user did not agree to.
 6c. Query shape: for every list, detail-with-children, export and bulk contract, name the relations and aggregates the response includes so they can be loaded in a fixed number of queries, and give clients a batch form (`ids`) instead of per-row requests (`ai-dev-team:code-review-checklist` → `references/query-performance.md`).
@@ -44,7 +44,7 @@ New projects — and new apps or packages added to an existing repo — start on
 - Record the result in the plan's `## Toolchain` table; developers install exactly these versions and commit the lockfile.
 - Existing projects keep their versions; upgrading is a task only when the user asks for it.
 
-## Template: `_workspace/02_plan.md`
+## Template: `$TEAM_WS/02_plan.md`
 
 ```markdown
 # Design: <feature>
@@ -63,15 +63,15 @@ New projects — and new apps or packages added to an existing repo — start on
 ## Risks & mitigation
 ```
 
-## Template: `_workspace/02_tasks.md` (task board)
+## Template: `$TEAM_WS/02_tasks.md` (task board)
 
 ```markdown
-| ID | Task | Depends on | Tags | Rules | Files | Verify with | Status | Rounds |
-|----|------|-----------|------|-------|-------|-------------|--------|--------|
-| T1 | Add order table migration | - | - | LIFE | migrations/... | `<test cmd>` | todo | 0 |
-| T2 | GET/POST /orders endpoints | T1 | security | LIFE, ABUSE, QUERY, AC-1, AC-2, SEC-1 | src/... | `<test cmd>` | todo | 0 |
-| T3 | Order list + form screens | T2 | ui | ARCH, COMPACT, LIST, LIFE, SWEEP, AC-3 | web/... | `<test cmd>` | todo | 0 |
+| ID | Task | Owner | Depends on | Tags | Rules | Files | Verify with | Status | Rounds |
+|----|------|-------|-----------|------|-------|-------|-------------|--------|--------|
+| T1 | Add order table migration | be | - | - | LIFE | migrations/... | `<test cmd>` | todo | 0 |
+| T2 | GET/POST /orders endpoints | be | T1 | security | LIFE, ABUSE, QUERY, AC-1, AC-2, SEC-1 | src/... | `<test cmd>` | todo | 0 |
+| T3 | Order list + form screens | fe | T2 | ui | ARCH, COMPACT, LIST, LIFE, SWEEP, AC-3 | web/... | `<test cmd>` | todo | 0 |
 ```
-Every task is built by a `developer` agent. Tags: `ui`, `pwa`, `mobile`, `security`.
+Every task is built by a `developer` agent. Owner is the task's side: `be` server (schema, APIs, jobs, integrations, infra) or `fe` client (web, PWA, Capacitor, Flutter, native); one side per task. Tags: `ui`, `pwa`, `mobile`, `security`.
 Rules: rule pack IDs from `ai-dev-team:dev-team` → `references/rule-packs.md` plus the task's `AC-n` and `SEC-n` (`BASE` and `COST` apply to every task and are not written). The developer reports one row per rule ID; the reviewer and qc re-check them.
-Status values: `todo | in-progress | review | fix | done | blocked | needs-rework`. Rounds counts fix rounds (max 3) so a resumed run keeps the count. The leader owns both columns.
+Status values: `todo | in-progress | review | fix | done | blocked | needs-rework`. Rounds counts fix rounds (max 3, then one escalation) so a resumed run keeps the count. The leader owns both columns.

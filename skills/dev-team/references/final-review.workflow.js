@@ -26,9 +26,9 @@ const ctx = [
   args.specPath ? `Spec: ${args.specPath}` : null,
   args.designPath ? `Plan: ${args.designPath}` : null,
   reviewOnly
-    ? 'No QC ran for this scope. Do not run test suites or builds; the security dimension may run the stack\'s dependency audit once via .claude/team/run-heavy.sh.'
+    ? 'No QC ran for this scope. Do not run test suites or builds; the security dimension may run the stack\'s dependency audit once via $TEAM_BIN/run-heavy.sh.'
     : 'Per-task review and QC sign-off already covered each task and ran the full suite: focus on interactions across tasks and on anything per-task review could not see. Do not run test suites, builds or audits.',
-  'Run at most one specific test via .claude/team/run-heavy.sh to prove a finding.',
+  'Run at most one specific test via $TEAM_BIN/run-heavy.sh to prove a finding.',
 ].filter(Boolean).join('\n')
 
 // Shared cap on concurrent agents so the final review stays inside the resource budget.
