@@ -40,11 +40,12 @@ Before anything else, when the repo still holds team files from an older version
 1. `.claude/team/project-profile.md` → `$TEAM_STATE/project-profile.md` (keep the newer one when both exist). Rewrite its commands from `.claude/team/<script>` to `$TEAM_BIN/<script>`.
 2. `.claude/team/run-heavy.sh`, `rule-checks.sh`, `overflow-check.mjs` → delete. Remove `.claude/team/` when it is empty.
 3. `_workspace/` → `$TEAM_WS/` (only when `$TEAM_WS` is empty; otherwise archive it as `$TEAM_STATE/workspace_<timestamp>/`); each `_workspace_*/` → `$TEAM_STATE/`.
-4. Remove the lines the team added to `.git/info/exclude` (`_workspace/`, `_workspace_*/`, `.claude/team/`). Entries in a tracked `.gitignore` are the user's: mention them, do not edit.
-5. Any of these files tracked by git → ask the user before moving, since that changes the repository.
+4. `.superpowers/` (mockups, brainstorm and plan files written by `superpowers` during a team run) → `$TEAM_WS/mockups/` and `$TEAM_WS/`; ask first when the user keeps their own files there.
+5. Remove the lines the team added to `.git/info/exclude` (`_workspace/`, `_workspace_*/`, `.claude/team/`). Entries in a tracked `.gitignore` are the user's: mention them, do not edit.
+6. Any of these files tracked by git → ask the user before moving, since that changes the repository.
 
 ## 4. Rules for every agent
-- Team files (notes, reports, screenshots, throwaway scripts and specs, downloaded tools) are written only under `TEAM_WS`, `TEAM_STATE` or `TEAM_TOOLS` — never in the repo. The repo receives only the code and tests the task asks for.
+- Team files (notes, reports, screenshots, mockups, throwaway scripts and specs, downloaded tools, files of third-party skills run by the team such as `.superpowers/`) are written only under `TEAM_WS`, `TEAM_STATE` or `TEAM_TOOLS` — never in the repo. The repo receives only the code and tests the task asks for, and the approved mockup in the profile's `mockup_dir` (`ai-dev-team:ui-ux-design` → `references/design-gate.md` §5).
 - Commands run with the project root as the working directory; the scripts find the project from there.
 - A tool that can only write inside the project (some browser MCP servers restrict their output directory) saves there, and the agent moves the file to `$TEAM_WS/qa-artifacts/` right away.
 - Writing outside the project may ask for permission. To avoid prompts, the user can add `~/.local/state/ai-dev-team` to `permissions.additionalDirectories` in their Claude Code settings; the plugin never edits settings itself.
