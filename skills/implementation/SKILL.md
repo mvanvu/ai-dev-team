@@ -11,6 +11,8 @@ description: "How the developer implements a task: read plan/UI spec/threat mode
 3. Read the rule list in the leader's brief (one line per rule ID; index in `ai-dev-team:dev-team` → `references/rule-packs.md` §2) — these are the rules you will report on, one by one. Open a pack's reference file only for the section behind a rule this task exercises.
 4. Read the code you will touch and its existing tests. Match local conventions from the project profile.
 
+Work in few turns (`COST-8`, `ai-dev-team:dev-team` → `references/resource-budget.md` §2): batch reads, write new files whole, make all edits to a file in one pass, run tests after a group of changes.
+
 ## TDD loop
 1. **Red**: write a test for the first acceptance behavior; run it; confirm it fails for the right reason.
 2. **Green**: write the minimal code to pass.

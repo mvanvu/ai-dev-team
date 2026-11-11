@@ -1,6 +1,6 @@
 {
   "name": "ai-dev-team",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "AI software development team for Claude Code: a leader skill that profiles and plans (with superpowers when installed) and three agents — developer, reviewer (code, security, design QA), qc — through build, review, QC and a verified final review.",
   "author": {
     "name": "mvanvu"

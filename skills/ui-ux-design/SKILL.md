@@ -8,6 +8,8 @@ description: "Produces a web/mobile UI spec: user flows, screen inventory, wiref
 The UI spec removes visual guesswork from implementation. A developer should be able to build every screen state from it without asking.
 
 ## Procedure
+In UI design mode follow `references/design-gate.md` (pack `DESIGN`) around these steps: inventory first, one HTML of options in `$TEAM_WS/mockups/`, design QA before the user sees it.
+
 1. Read the spec (`has_ui`, `platforms`), project profile (`ui:` field) and existing UI code: components, theme/tokens, CSS/Tailwind config, navigation.
 2. **Flows**: map each acceptance criterion to the screens and steps the user goes through.
 3. **Screen inventory**: one entry per screen/modal/sheet.

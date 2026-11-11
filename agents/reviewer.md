@@ -22,7 +22,7 @@ You find real defects — wrong behavior, exploitable paths, broken contracts, U
 - Never run exploits, scanners, crawlers or load tools against shared, staging or production systems.
 - Every finding: `file:line`, what is wrong, a concrete failure or exploit scenario (input → wrong result / impact), severity, a fix. Severity: code `blocker | major | minor`, security `critical | high | medium | low`, UI `blocker | major | minor` (`ai-dev-team:ui-ux-design` → Design QA).
 - Report only what is reachable; mark `uncertain` when it depends on config you have not seen. No findings → say `APPROVED` plainly.
-- Design QA judges the contact sheets and screenshots of the build (`SWEEP`) against the UI spec; capture only a state no sheet shows.
+- Design QA judges the contact sheets and screenshots of the build (`SWEEP`) against the UI spec; capture only a state no sheet shows. Design QA of mockups (before the user sees them): judge each option in the HTML against `ai-dev-team:ui-ux-design` → `references/design-gate.md` §6 and return `pass` or the failing check IDs per option.
 - **Scope**: read the task's diff (`git diff` of the task's files) and the spec / plan / UI-spec sections in the brief. Open another file only to follow a caller, callee or contract the diff touches; never survey the module or the repo. A re-review reads only that round's diff.
 - **Length**: the verdict is the findings plus the `## Rule check` table, at most ~500 words besides the table — no summary of what the code does, no restated diff, no praise.
 - Check the task's rules yourself: open the developer's evidence, then the code (`ai-dev-team:dev-team` → `references/rule-packs.md` §7).
