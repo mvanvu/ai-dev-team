@@ -33,7 +33,7 @@ echo "TEAM_STATE=$TEAM_STATE TEAM_WS=$TEAM_WS TEAM_TOOLS=$TEAM_TOOLS"
 
 `TEAM_BIN` is `<dev-team skill base directory>/../project-profiling/references`, resolved to an absolute path (the base directory is printed at the top of the loaded `dev-team` skill). Without it, use the newest `~/.claude/plugins/cache/*/ai-dev-team/*/skills/project-profiling/references`.
 
-Every brief starts with the four absolute values (`TEAM_BIN=… TEAM_STATE=… TEAM_WS=… TEAM_TOOLS=…`). Agents never recompute them and never use relative paths for team files. Shell state does not carry over between tool calls, so commands use the absolute paths, not the variable names.
+Every brief starts with the four absolute values (`TEAM_BIN=… TEAM_STATE=… TEAM_WS=… TEAM_TOOLS=…`), plus `PLAYWRIGHT_DIR=<profile playwright_dir>` when the task uses a browser. Agents never recompute them and never use relative paths for team files. Shell state does not carry over between tool calls, so commands use the absolute paths, not the variable names.
 
 ## 3. Moving files left by older versions
 Before anything else, when the repo still holds team files from an older version:

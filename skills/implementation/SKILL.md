@@ -7,8 +7,9 @@ description: "How the developer implements a task: read plan/UI spec/threat mode
 
 ## Before coding
 1. Read the task row in `$TEAM_WS/02_tasks.md`, the related plan contract, the UI spec section (tag `ui`) and threat-model requirements (tag `security`).
-2. Read the rule list in the leader's brief (one line per rule ID; index in `ai-dev-team:dev-team` → `references/rule-packs.md` §2) — these are the rules you will report on, one by one. Open a pack's reference file only for the section behind a rule this task exercises.
-3. Read the code you will touch and its existing tests. Match local conventions from the project profile.
+2. Checking data or pages while working: the lightest tool (`ai-dev-team:dev-team` → `references/resource-budget.md` §2) — `curl`/`jq` for API data, `lightpanda fetch` for rendered DOM, a browser only for layout.
+3. Read the rule list in the leader's brief (one line per rule ID; index in `ai-dev-team:dev-team` → `references/rule-packs.md` §2) — these are the rules you will report on, one by one. Open a pack's reference file only for the section behind a rule this task exercises.
+4. Read the code you will touch and its existing tests. Match local conventions from the project profile.
 
 ## TDD loop
 1. **Red**: write a test for the first acceptance behavior; run it; confirm it fails for the right reason.
