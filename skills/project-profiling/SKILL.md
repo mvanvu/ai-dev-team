@@ -27,7 +27,7 @@ The project profile is the team's shared source of truth: which test command the
    - `test (full)`: the whole suite, marked sign-off only. A "module" command that covers the whole app is the full suite, not a per-task command.
    - `## Guard map`: which guard / architecture / lint-style tests to run for which changed paths (e.g. `*.vue` → the component-class guard; `app.css` → the stylesheet guard; language files → the parity test). Per task only the mapped guards run, never every guard suite.
    - Whether builds write tracked files (bundles, hashed assets): record it under `## Environment issues` — such builds make parallel developers on one tree collide.
-8. **Rule check scripts**: `$TEAM_BIN/rule-checks.sh` and `$TEAM_BIN/overflow-check.mjs` run from the plugin with the project root as the working directory. `overflow-check.mjs` needs Playwright: when the project has none, record `qa-tools: $TEAM_TOOLS` (set up there on first use, never added to the project). Developers and qc run them as evidence for the rules a script can decide (`ai-dev-team:dev-team` → `references/rule-packs.md` §9).
+8. **Rule check scripts**: `$TEAM_BIN/rule-checks.sh` and `$TEAM_BIN/overflow-check.mjs` run from the plugin with the project root as the working directory. `overflow-check.mjs` and every browser check need Playwright. Find it once here — the project's own `node_modules`, then `$TEAM_TOOLS`; when neither has it, install it into `$TEAM_TOOLS` (`npm init -y && npm i -D playwright && npx playwright install chromium --only-shell`) — and record the directory as `playwright_dir`. Agents get it as `PLAYWRIGHT_DIR` in their brief and never search the file system for it. Never add Playwright to the project's own manifest. Developers and qc run them as evidence for the rules a script can decide (`ai-dev-team:dev-team` → `references/rule-packs.md` §9).
 9. Write the profile using the template below. Monorepo with several stacks or apps: one subsection per package/app with its own commands, `ui`, `ui_widths` and `ui_themes`.
 
 Empty repo: write `status: greenfield`, `tooling_policy: latest-stable`, skip steps 3–6 but still do steps 7–8 (budget, script check); the leader profiles again right after the scaffold task. Existing projects get `tooling_policy: keep-existing`.
@@ -48,6 +48,8 @@ ui_widths: none | <comma-separated widths>
 ui_themes: light | light,dark
 ui_theme_set: <js snippet, only when not prefers-color-scheme>
 ui_seed: <$TEAM_STATE/seed/<name>.js per screen group, or URLs / fixture commands; none yet>
+ui_flows: <$TEAM_STATE/flows/<name>.mjs — reusable UI steps (login, open record, open dialog); none yet>
+playwright_dir: <directory whose node_modules has Playwright: the project root, an existing install, or $TEAM_TOOLS; none>
 heavy_workers: N
 ---
 # Project Profile
