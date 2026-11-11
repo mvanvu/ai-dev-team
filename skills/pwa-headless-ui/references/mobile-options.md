@@ -14,7 +14,7 @@ Whenever a request needs an iOS/Android app and the platform is not already fixe
 | 2 | **Capacitor wrapping the PWA** (current setup) | The PWA already covers the product and speed to market matters most | One codebase for web + mobile; native feel limited by the WebView; remote `server.url` risks (App Store guideline 4.2, offline) — see `capacitor.md` |
 | 3 | **Native apps** (Swift/SwiftUI for iOS, Kotlin/Jetpack Compose for Android) | Deep platform integration, maximum performance, or platform-specific UX is the core value | Two codebases, highest cost and slowest delivery; best platform fidelity |
 
-The leader asks with `AskUserQuestion` (header `Mobile`, Flutter first with the label `Flutter (Recommended)`), records the answer in `_workspace/02_plan.md` under **Decisions**, and plans the tasks for that platform.
+The leader asks with `AskUserQuestion` (header `Mobile`, Flutter first with the label `Flutter (Recommended)`), records the answer in `$TEAM_WS/02_plan.md` under **Decisions**, and plans the tasks for that platform.
 
 ## Building each option
 

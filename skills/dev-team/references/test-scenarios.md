@@ -30,8 +30,8 @@ Expected behavior of the `ai-dev-team:dev-team` skill, used when changing or eva
 3. Qc marks `COMPACT-2` `fail` (a long name overflows at 360px on the contact sheet) → fix request, ledger entry; after the fix qc re-checks → `pass` → task `done`.
 
 ## Error flow — interrupted run
-1. A usage limit hits while T4 is in fix round 2. Leader writes `_workspace/gaps.md`; the board shows T4 `fix`, Rounds 2.
-2. User: "continue". Phase 0 sees unfinished tasks, reads `04_dev_T4.md` and `git diff`, briefs a fresh developer "continue T4 from these notes"; the round cap stays at 3 with 1 round left.
+1. A usage limit hits while T4 is in fix round 1. Leader writes `$TEAM_WS/gaps.md`; the board shows T4 `fix`, Rounds 1.
+2. User: "continue". Phase 0 sees unfinished tasks, reads `04_dev_T4.md` and `git diff`, briefs a fresh developer "continue T4 from these notes"; the round cap stays at 3 with 2 rounds left.
 
 ## Error flow — QC blocked
 1. Qc returns `QC_BLOCKED T2`: the test database container is down.

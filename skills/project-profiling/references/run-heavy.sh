@@ -3,11 +3,12 @@
 # Only one heavy command runs at a time on this machine, at low CPU priority, so parallel
 # agents queue instead of saturating the CPU and freezing the desktop.
 #
-# Usage: .claude/team/run-heavy.sh <command> [args...]
+# Usage: $TEAM_BIN/run-heavy.sh <command> [args...]
 # Env:   AI_DEV_TEAM_LOCK       lock path (default: $TMPDIR or /tmp + ai-dev-team-heavy.lock; machine-wide;
 #                               without flock the lock is the directory <lock>.d holding the owner's pid)
 #        AI_DEV_TEAM_LOCK_WAIT  max seconds to wait for the lock (default 1800)
 # Exit:  the command's exit code, or 75 when the lock wait timed out.
+# While waiting it prints the holder's command and directory (from <lock>.owner) once to stderr.
 set -u
 
 lock="${AI_DEV_TEAM_LOCK:-${TMPDIR:-/tmp}/ai-dev-team-heavy.lock}"
@@ -18,6 +19,11 @@ if [ "$#" -eq 0 ]; then
   exit 64
 fi
 
+owner_file="$lock.owner"
+say_waiting() {
+  echo "run-heavy: waiting for the heavy lock, held by: $(cat "$owner_file" 2>/dev/null || echo unknown)" >&2
+}
+
 low_priority() {
   if command -v nice >/dev/null 2>&1; then nice -n 10 "$@"; else "$@"; fi
 }
@@ -25,7 +31,11 @@ low_priority() {
 if command -v flock >/dev/null 2>&1; then
   # -o: the command does not inherit the lock fd, so daemons it leaves behind
   # (Gradle, Flutter, test containers) cannot hold the lock after it exits.
-  exec flock -o -w "$wait_s" -E 75 "$lock" nice -n 10 "$@"
+  flock -n "$lock" true 2>/dev/null || say_waiting
+  # The child records itself as the holder once it has the lock, then becomes the command.
+  exec flock -o -w "$wait_s" -E 75 "$lock" sh -c \
+    'printf "%s  [%s, since %s]\n" "$*" "$PWD" "$(date +%H:%M:%S)" > "$0" 2>/dev/null; exec nice -n 10 "$@"' \
+    "$owner_file" "$@"
 fi
 
 # Fallback for systems without flock (macOS): an atomic mkdir lock. The owner pid is written
@@ -33,6 +43,7 @@ fi
 dir="$lock.d"
 start=$(date +%s)
 nopid_since=""
+announced=0
 while :; do
   if mkdir "$dir" 2>/dev/null; then
     # Ours only if the pid lands in it (a breaker may have renamed the directory meanwhile).
@@ -69,6 +80,7 @@ while :; do
     nopid_since=""
     continue
   fi
+  if [ "$announced" -eq 0 ]; then say_waiting; announced=1; fi
   if [ $(( $(date +%s) - start )) -ge "$wait_s" ]; then
     echo "run-heavy: waited ${wait_s}s for $dir" >&2
     exit 75
@@ -79,6 +91,7 @@ release() {
   # Remove the lock only while it is still ours.
   if [ "$(cat "$dir/pid" 2>/dev/null || true)" = "$$" ]; then rm -rf "$dir"; fi
 }
+printf "%s  [%s, since %s]\n" "$*" "$PWD" "$(date +%H:%M:%S)" > "$owner_file" 2>/dev/null
 trap release EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM

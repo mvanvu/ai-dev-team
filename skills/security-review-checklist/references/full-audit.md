@@ -81,7 +81,7 @@ High vs medium: does the demonstrated result fully defeat a control for an actio
 | `rejected` | Disproved; kept with the reason so it is not re-raised | no |
 
 ## 8. Report
-Write `_workspace/security-audit/REPORT.md` (or the path the user names), in this order:
+Write `$TEAM_WS/security-audit/REPORT.md` (or the path the user names), in this order:
 1. Scope, source ref (commit, dirty or not), depth, and a coverage statement: what was covered, deferred, out of scope. Never imply the audit exhausted the target.
 2. Confirmed findings, most severe first, each with: title, severity, `file:line`, principal → input → missing or weak control → boundary → result, conditions, safe local reproduction (command and input, dummy data only), smallest fix and regression test.
 3. Needs validation: hypothesis, the exact missing fact, the safe check the owner can run.

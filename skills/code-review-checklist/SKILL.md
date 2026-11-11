@@ -6,7 +6,7 @@ description: "Checklist and output format for reviewing a code diff: correctness
 # Code review checklist
 
 ## Determine scope
-- Task review: files listed in `_workspace/04_dev_T{id}.md`, plus `git diff` if the repo is under git.
+- Task review: files listed in `$TEAM_WS/04_dev_T{id}.md`, plus `git diff` if the repo is under git.
 - Branch/PR review: `git diff <base>...HEAD`.
 
 Test, lint and build results come from the task notes; do not rerun them. Missing or failing output in the notes is itself a finding (`major`).

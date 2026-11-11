@@ -11,7 +11,7 @@ The UI spec removes visual guesswork from implementation. A developer should be 
 1. Read the spec (`has_ui`, `platforms`), project profile (`ui:` field) and existing UI code: components, theme/tokens, CSS/Tailwind config, navigation.
 2. **Flows**: map each acceptance criterion to the screens and steps the user goes through.
 3. **Screen inventory**: one entry per screen/modal/sheet.
-4. **Wireframes** per screen (ASCII by default; static HTML prototype in `_workspace/` for complex layouts). Always include loading, empty, error, success and disabled states; for mobile apps using online data also `offline` (banner over cached content, or a full offline screen with Retry when nothing is cached) and `reconnecting`.
+4. **Wireframes** per screen (ASCII by default; static HTML prototype in `$TEAM_WS/` for complex layouts). Always include loading, empty, error, success and disabled states; for mobile apps using online data also `offline` (banner over cached content, or a full offline screen with Retry when nothing is cached) and `reconnecting`.
 5. **Tokens**: reuse existing tokens; only add new ones with a reason. For new palettes/typography, consult the `ui-ux-pro-max` skill when it is installed.
 6. **Components**: name, props, variants, interactions, and which existing component it extends.
 7. **Platform rules**:
@@ -32,7 +32,7 @@ Every screen must look designed for this product, not generated: real content sh
 7. **Real copy**: write plausible, specific content; placeholder copy makes a design feel templated.
 When `ui-ux-pro-max` is installed, use it for palette, font-pairing and stack data, then filter its suggestions through the steps above.
 
-## Template: `_workspace/02_ui-spec.md`
+## Template: `$TEAM_WS/02_ui-spec.md`
 
 ```markdown
 # UI Spec: <feature>
@@ -54,5 +54,5 @@ platforms: web | ios | android
 ```
 
 ## Design QA
-Compare the implemented UI to the spec (read code and the contact sheets of this build — every width × theme per screen — from the developer and qc; capture yourself only a state no sheet shows, through `.claude/team/run-heavy.sh` — `ai-dev-team:dev-team` → `references/resource-budget.md` §1). Report each deviation as `blocker` (missing state, broken flow, a11y failure), `major` (wrong token/layout at a breakpoint; on phones: text overflowing or clipped without ellipsis, horizontal page scroll, wasted space such as stacked buttons that fit one row or dead space beside/under a row icon — `ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7), `minor` (spacing/polish), with `file:line`.
+Compare the implemented UI to the spec (read code and the contact sheets of this build — every width × theme per screen — from the developer and qc; capture yourself only a state no sheet shows, through `$TEAM_BIN/run-heavy.sh` — `ai-dev-team:dev-team` → `references/resource-budget.md` §1). Report each deviation as `blocker` (missing state, broken flow, a11y failure), `major` (wrong token/layout at a breakpoint; on phones: text overflowing or clipped without ellipsis, horizontal page scroll, wasted space such as stacked buttons that fit one row or dead space beside/under a row icon — `ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7), `minor` (spacing/polish), with `file:line`.
 When the task's `Rules` include a pack that names `reviewer` for design QA in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 (`COMPACT`, `REAL`, `SWEEP`), also return the `## Rule check T{id}` table: one row per rule ID, `pass | fail | n-o` with evidence (`file:line` or screenshot); a `fail` is a deviation with the rule ID in its title.

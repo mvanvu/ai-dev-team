@@ -7,8 +7,8 @@ A Claude Code plugin that adds a 3-agent software team and an orchestrator skill
 | Who | Model | Role |
 |---|---|---|
 | leader (the `dev-team` skill, in the main session) | session model | Profiles the repo, plans with the user (with `superpowers` brainstorming + writing-plans when installed), owns the task board, briefs agents, merges feedback, reports |
-| `developer` | opus | Builds every task — backend, web frontend, PWA, Flutter / Capacitor / native — test-first; writes the UI spec before screens are built; applies fixes |
-| `reviewer` | opus | One read-only pass per task over code quality, security and UI conformance (design QA); threat models, full audits, final-review dimensions and adversarial verification |
+| `developer` | opus (sonnet for small changes and layout fixes; fable only under the Fable policy you pick once per run (auto with a report / ask each time / never) — for an escalation after 3 failed fix rounds, hard-to-reproduce bugs, complex high-risk tasks, audits and large plans) | Builds every task test-first — one side per task: server (schema, APIs with contract tests, jobs, infra) or client (web, PWA, Flutter / Capacitor / native, against the server contract of a finished task); writes the UI spec before screens are built; applies fixes |
+| `reviewer` | opus (sonnet for low-risk task reviews) | One read-only pass per task over code quality, security and UI conformance (design QA); threat models, full audits, final-review dimensions and adversarial verification |
 | `qc` | sonnet | Acceptance criteria and cross-module contracts with evidence; browser checks on the lightest engine that fits (Lightpanda, Playwright headless shell / WebKit, Claude in Chrome as last fallback), Flutter widget/golden tests; feature sign-off |
 
 All agents and skills are namespaced by the plugin, e.g. `ai-dev-team:developer`, `ai-dev-team:dev-team`.
@@ -38,19 +38,21 @@ To have a project prompt teammates to install it, add to that project's `.claude
 
 Describe the work in a project. The `ai-dev-team:dev-team` skill triggers on requests like "build feature X", "fix this bug", "add a screen", "make it a PWA", "add a new template", "review this branch", "security review", or invoke it explicitly with `/ai-dev-team:dev-team <request>`.
 
-The orchestrator writes to the target project:
-- `.claude/team/project-profile.md`: detected stack, verified commands and the resource budget, kept across runs.
-- `.claude/team/run-heavy.sh`: wrapper that runs heavy commands (tests, builds, audits) one at a time at low CPU priority.
-- `.claude/team/rule-checks.sh` and `.claude/team/overflow-check.mjs`: scripts that decide the rules a machine can check (forbidden imports in feature code, list filters in web storage, AI attribution in commits, pre-release dependencies, text overflow on phone viewports).
-- `_workspace/`: spec, plan, UI spec, threat model, task board, task notes, QC reports. Add `_workspace/` and `_workspace_*/` to the project's `.gitignore`.
+The team writes nothing into the project repository — only the code and tests a task asks for. Its own files live outside the repo (details: `skills/dev-team/references/team-paths.md`):
+- `~/.local/state/ai-dev-team/projects/<project>/project-profile.md`: detected stack, verified commands and the resource budget, kept across runs.
+- `~/.local/state/ai-dev-team/projects/<project>/workspace/`: spec, plan, UI spec, threat model, task board, task notes, QC reports and screenshots of the current run; finished runs are archived beside it.
+- `~/.local/state/ai-dev-team/qa-tools/`: a Playwright install shared by all projects, used only when a project has none.
+- Scripts run straight from the installed plugin (`skills/project-profiling/references/`), so a plugin update takes effect without touching any repo: `run-heavy.sh` runs heavy commands (tests, builds, audits) one at a time at low CPU priority; `rule-checks.sh` and `overflow-check.mjs` decide the rules a machine can check (forbidden imports in feature code, list filters in web storage, AI attribution in commits, pre-release dependencies, text overflow on phone viewports).
 
-The final review phase uses the Workflow tool. Invoking the `dev-team` skill counts as consent; it stays small (≤ 3 reviewers + verifiers) unless you ask for a thorough review.
+Projects used with an older version get their `.claude/team/` and `_workspace/` moved out on the next run. To avoid permission prompts for writes outside the project, add `~/.local/state/ai-dev-team` to `permissions.additionalDirectories` in your Claude Code settings.
+
+The final review phase uses the Workflow tool and runs when a feature has 4 or more tasks or anything security-related (always for review-only requests). Invoking the `dev-team` skill counts as consent; it stays small (≤ 3 reviewers + verifiers) unless you ask for a thorough review.
 
 ### Resource budget
 Parallel agents are cheap; the test runners and builds they start are not. The profile sets the budget, and you can edit it:
 - `max_agents` (default 4): agents running at once, including the final-review workflow; extra work queues.
 - `heavy_workers` (default CPU threads ÷ 4): worker cap written into every heavy test/build command.
-- Heavy commands go through `.claude/team/run-heavy.sh`, which lets only one run at a time on the machine (`flock`, with a `mkdir` lock fallback on macOS) under `nice`. `AI_DEV_TEAM_LOCK_WAIT` sets the maximum wait in seconds (default 1800).
+- Heavy commands go through `$TEAM_BIN/run-heavy.sh`, which lets only one run at a time on the machine (`flock`, with a `mkdir` lock fallback on macOS) under `nice`. `AI_DEV_TEAM_LOCK_WAIT` sets the maximum wait in seconds (default 1800).
 
 The reviewer reads the developer's test output instead of rerunning it, per-task QC runs in parallel with review, and the full suite runs once at sign-off. Developers run only the tests related to the files they changed (`vitest related`, mapped guards), once per task and once per fix round; tasks that share files or a built bundle never run at the same time on one working tree.
 

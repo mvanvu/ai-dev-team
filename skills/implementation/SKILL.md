@@ -6,8 +6,8 @@ description: "How the developer implements a task: read plan/UI spec/threat mode
 # Implementation
 
 ## Before coding
-1. Read the task row in `_workspace/02_tasks.md`, the related plan contract, the UI spec section (tag `ui`) and threat-model requirements (tag `security`).
-2. Read every must-read file of the rule packs in the task's `Rules` column (listed in the leader's brief; index in `ai-dev-team:dev-team` → `references/rule-packs.md` §2) and its numbered checks — these are the rules you will report on, one by one.
+1. Read the task row in `$TEAM_WS/02_tasks.md`, the related plan contract, the UI spec section (tag `ui`) and threat-model requirements (tag `security`).
+2. Read the rule list in the leader's brief (one line per rule ID; index in `ai-dev-team:dev-team` → `references/rule-packs.md` §2) — these are the rules you will report on, one by one. Open a pack's reference file only for the section behind a rule this task exercises.
 3. Read the code you will touch and its existing tests. Match local conventions from the project profile.
 
 ## TDD loop
@@ -19,7 +19,7 @@ description: "How the developer implements a task: read plan/UI spec/threat mode
 6. A test you did not touch, for code you did not change, fails: rerun that single file once. Still failing → write it in the notes as `not mine: <file> — <first error line>` and report it; do not rerun the suite to investigate, do not edit other tasks' files to make it pass. Concurrent edits by another agent and stale built output are the usual cause, and the leader resolves them.
 
 ## Running commands
-- Heavy commands (module/related test runs, builds, e2e, native builds) run through the profile's wrapped commands — `.claude/team/run-heavy.sh <cmd>` with the worker cap. The red/green loop on a single test file may run directly.
+- Heavy commands (module/related test runs, builds, e2e, native builds) run through the profile's wrapped commands — `$TEAM_BIN/run-heavy.sh <cmd>` with the worker cap. The red/green loop on a single test file may run directly.
 - Foreground only: never leave watchers, dev servers, emulators or daemons running when you report.
 - Paste the trimmed output of the final test/lint/build runs into the task notes — reviewers rely on it instead of rerunning them.
 
@@ -40,7 +40,7 @@ Where a test is impractical (pure styling, config), state why in the task notes 
 3. Fix, confirm the test passes, run the related suite for regressions.
 4. For hard bugs, use the `superpowers:systematic-debugging` skill when it is installed in this session; otherwise keep to steps 1–3.
 
-## Task notes: `_workspace/04_dev_T{id}.md`
+## Task notes: `$TEAM_WS/04_dev_T{id}.md`
 ```markdown
 # T{id} <title>
 - Files changed:
@@ -53,7 +53,7 @@ Where a test is impractical (pure styling, config), state why in the task notes 
 | Rule | Status | Evidence |
 |---|---|---|
 ```
-One row per rule ID of `BASE`, `COST` and every assigned pack: `pass` with evidence another agent can open (test name, `file:line`, command output, artifact path), `n-a` with the reason, or `fail`. A `fail` or an unchecked rule means the task is not done — fix it or report `BLOCKED`. Rules with a script (`.claude/team/rule-checks.sh`, `.claude/team/overflow-check.mjs` — §9 of that file) are proven by the script's output. Format and rules: `ai-dev-team:dev-team` → `references/rule-packs.md` §6. The leader returns a `DONE` whose notes lack this table.
+One row per rule ID of `BASE`, `COST` and every assigned pack: `pass` with evidence another agent can open (test name, `file:line`, command output, artifact path), `n-a` with the reason, or `fail`. A `fail` or an unchecked rule means the task is not done — fix it or report `BLOCKED`. Rules with a script (`$TEAM_BIN/rule-checks.sh`, `$TEAM_BIN/overflow-check.mjs` — §9 of that file) are proven by the script's output. Format and rules: `ai-dev-team:dev-team` → `references/rule-packs.md` §6. The leader returns a `DONE` whose notes lack this table.
 
 ## Applying feedback
 Fix each listed finding; reply per finding `fixed` / `disagree: <reason>`; update the `## Rule compliance` rows the fix touches; rerun only the related tests of the files changed in this round (and rebuild once if built output changed); report `DONE T{id}` again.

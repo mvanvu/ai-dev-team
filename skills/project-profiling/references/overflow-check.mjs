@@ -4,7 +4,7 @@
 // ellipsis), COMPACT-7 (horizontal scrollers draw no scrollbar on phones) and the COST sweep
 // (every width x every theme in one browser launch, one contact sheet per url).
 //
-// Usage: node .claude/team/overflow-check.mjs [options] <url> [<url>...]
+// Usage: node $TEAM_BIN/overflow-check.mjs [options] <url> [<url>...]
 //   --widths <list>    comma-separated viewport widths (default 360,390; the sweep uses the profile's ui_widths)
 //   --themes <list>    comma-separated themes, e.g. light,dark (default light)
 //   --theme-set <js>   function body run in the page after load with `theme` in scope, for apps that
@@ -12,16 +12,19 @@
 //   --scale <n>        also run phone widths (< 768) with the root font size multiplied by n (default 1.3; 1 disables)
 //   --allow <selector> ignore elements matching this CSS selector and their descendants (repeatable)
 //   --shots <dir>      save a full-page screenshot per url / width / theme / scale, and write
-//                      <dir>/build-id.txt from `.claude/team/rule-checks.sh build-id` when that script exists
+//                      <dir>/build-id.txt from `rule-checks.sh build-id` beside this script
 //   --sheet            with --shots: also write <dir>/<url>-sheet.png, every width x theme of that url on one image
 //   --storage <file>   Playwright storage state (logged-in session)
+//   --init <file>      script run in every page before the app loads (Playwright addInitScript), e.g. to seed
+//                      localStorage with worst-case content; the profile's ui_seed names it (repeatable)
+//   --verbose          one line per offender per cell; by default offenders are grouped across cells
 //   --wait <ms>        extra wait after the load event (default 300)
 //   --ready <selector> after load, wait up to 15 s for this selector (apps that render after fetching);
 //                      on timeout a warning line is printed and the check continues
 // Exit: 0 clean, 1 offenders found, 2 Playwright is not installed, 64 usage error.
 //
 // Playwright is resolved from $PLAYWRIGHT_DIR (a directory containing node_modules), then the
-// project in the current directory, then _workspace/qa-tools/ under the current directory.
+// project in the current directory, then the shared QA tools folder (${XDG_STATE_HOME:-~/.local/state}/ai-dev-team/qa-tools).
 // Horizontal scrollers: an element with overflow-x auto/scroll whose overflow-y is not auto/scroll
 // (as written in the CSS), or any element with the data-scroll-row attribute; their content may be
 // wider than the viewport. A vertical scroller (fixed-shell page body) is checked like the page:
@@ -32,7 +35,9 @@
 import { createRequire } from 'node:module'
 import { execFileSync } from 'node:child_process'
 import { accessSync, constants, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const PHONE_MAX = 767
 
@@ -146,7 +151,7 @@ export function findOverflow(allow = []) {
 function parseArgs(argv) {
   const options = {
     widths: [360, 390], themes: ['light'], themeSet: null, scale: 1.3, allow: [],
-    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [],
+    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -158,6 +163,8 @@ function parseArgs(argv) {
     else if (arg === '--allow') options.allow.push(argv[++i])
     else if (arg === '--shots') options.shots = argv[++i]
     else if (arg === '--storage') options.storage = argv[++i]
+    else if (arg === '--init') options.init.push(argv[++i])
+    else if (arg === '--verbose') options.verbose = true
     else if (arg === '--wait') options.wait = Number(argv[++i])
     else if (arg === '--ready') options.ready = argv[++i]
     else if (arg.startsWith('--')) return null
@@ -175,7 +182,7 @@ function loadChromium() {
   const bases = [
     process.env.PLAYWRIGHT_DIR && path.resolve(process.env.PLAYWRIGHT_DIR),
     process.cwd(),
-    path.join(process.cwd(), '_workspace', 'qa-tools'),
+    path.join(process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'), 'ai-dev-team', 'qa-tools'),
   ].filter(Boolean)
   for (const base of bases) {
     const require = createRequire(path.join(base, 'package.json'))
@@ -206,7 +213,7 @@ function shotNames(urls) {
 
 // Records which build the screenshots show, so later agents can tell whether a sweep is stale.
 function writeBuildId(dir) {
-  const script = path.join(process.cwd(), '.claude', 'team', 'rule-checks.sh')
+  const script = path.join(path.dirname(fileURLToPath(import.meta.url)), 'rule-checks.sh')
   try {
     accessSync(script, constants.X_OK)
     const id = execFileSync(script, ['build-id'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
@@ -219,12 +226,12 @@ function writeBuildId(dir) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options) {
-    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--shots dir [--sheet]] [--storage file] [--wait ms] [--ready selector] <url>...')
+    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
     process.exit(64)
   }
   const chromium = loadChromium()
   if (!chromium) {
-    console.error('COMPACT-1 COMPACT-2 COMPACT-7 not-run: playwright not found; install it in _workspace/qa-tools/ (cd _workspace/qa-tools && npm init -y && npm i -D playwright && npx playwright install chromium --only-shell), never in the project, or set PLAYWRIGHT_DIR')
+    console.error('COMPACT-1 COMPACT-2 COMPACT-7 not-run: playwright not found; install it in ~/.local/state/ai-dev-team/qa-tools (cd there && npm init -y && npm i -D playwright && npx playwright install chromium --only-shell), never in the project, or set PLAYWRIGHT_DIR')
     process.exit(2)
   }
   if (options.shots) mkdirSync(options.shots, { recursive: true })
@@ -234,6 +241,13 @@ async function main() {
   const sheetCells = new Map()
   const browser = await chromium.launch()
   let failures = 0
+  // Grouped report: the same offender in many cells is one line listing the cells.
+  const groups = new Map()
+  const report = (key, label) => {
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(label)
+  }
+  let clean = 0
   try {
     for (const width of options.widths) {
       const phone = width <= PHONE_MAX
@@ -241,6 +255,7 @@ async function main() {
         viewport: viewportFor(width), isMobile: phone, hasTouch: phone, deviceScaleFactor: phone ? 2 : 1,
         ...(options.storage ? { storageState: options.storage } : {}),
       })
+      for (const file of options.init) await context.addInitScript({ path: file })
       const page = await context.newPage()
       for (const url of options.urls) {
         for (const theme of options.themes) {
@@ -263,6 +278,7 @@ async function main() {
             await page.waitForTimeout(options.wait)
             const result = await page.evaluate(findOverflow, options.allow)
             const label = `${url} @ ${width}px ${theme} scale ${scale}`
+            const cell = `${width} ${theme}${scale === 1 ? '' : ` x${scale}`}`
             if (options.shots) {
               const file = path.join(options.shots, `${shotName(url)}-${width}-${theme}-x${scale}.png`)
               await page.screenshot({ path: file, fullPage: true })
@@ -273,13 +289,18 @@ async function main() {
             }
             if (result.pageScroll) {
               failures++
-              console.log(`COMPACT-1 ${label}: page scrolls horizontally (scrollWidth ${result.scrollWidth} > ${result.viewport})`)
+              if (options.verbose) console.log(`COMPACT-1 ${label}: page scrolls horizontally (scrollWidth ${result.scrollWidth} > ${result.viewport})`)
+              else report(`COMPACT-1 ${url}: page scrolls horizontally`, cell)
             }
             for (const offender of result.offenders) {
               failures++
-              console.log(`${offender.rule} ${label}: ${offender.kind} ${offender.el}`)
+              if (options.verbose) console.log(`${offender.rule} ${label}: ${offender.kind} ${offender.el}`)
+              else report(`${offender.rule} ${url}: ${offender.kind} ${offender.el}`, cell)
             }
-            if (!result.pageScroll && !result.offenders.length) console.log(`COMPACT-1 COMPACT-2 COMPACT-7 ok ${label}`)
+            if (!result.pageScroll && !result.offenders.length) {
+              clean++
+              if (options.verbose) console.log(`COMPACT-1 COMPACT-2 COMPACT-7 ok ${label}`)
+            }
           }
         }
       }
@@ -300,6 +321,10 @@ async function main() {
     }
   } finally {
     await browser.close()
+  }
+  if (!options.verbose) {
+    for (const [key, cells] of groups) console.log(`${key} — ${cells.length} cell(s): ${cells.join(', ')}`)
+    console.log(`summary: ${clean} clean cell(s), ${groups.size} distinct offender(s), ${failures} occurrence(s)`)
   }
   if (options.shots) writeBuildId(options.shots)
   process.exit(failures ? 1 : 0)

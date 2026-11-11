@@ -115,7 +115,7 @@ An app screen explains itself through layout, labels and familiar controls. Ever
 ## 7. Checks
 Run at 360×800 and 390×844, then with font scale 130% and the longest locale:
 1. No horizontal page scroll: `document.documentElement.scrollWidth <= document.documentElement.clientWidth` (not `window.innerWidth`, which grows when a phone zooms out to fit overflowing content).
-2. No element sticks out of the viewport and no text is clipped (horizontally or vertically) without an ellipsis or line clamp. Items 1 and 2 are decided by `node .claude/team/overflow-check.mjs <url>...` (Playwright; both viewports, then font scale 130%; `--allow <selector>` for a deliberate exception). On Playwright MCP or Claude in Chrome, evaluate the `findOverflow` function from that file in the page instead. Content inside an intended horizontal scroller is skipped automatically.
+2. No element sticks out of the viewport and no text is clipped (horizontally or vertically) without an ellipsis or line clamp. Items 1 and 2 are decided by `node $TEAM_BIN/overflow-check.mjs <url>...` (Playwright; both viewports, then font scale 130%; `--allow <selector>` for a deliberate exception). On Playwright MCP or Claude in Chrome, evaluate the `findOverflow` function from that file in the page instead. Content inside an intended horizontal scroller is skipped automatically.
 3. Adjacent button pairs whose labels fit share one row; no column of stacked full-width buttons where a row fits.
 4. Icon/text rows: icon column no wider than icon + gap, no empty strip under the icon next to a tall text block, no blank icon slot on icon-less rows.
 5. Short fields and label/value pairs that fit are paired on one row; section actions sit on the header line.
