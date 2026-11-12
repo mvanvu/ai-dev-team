@@ -38,13 +38,13 @@ To have a project prompt teammates to install it, add to that project's `.claude
 
 Describe the work in a project. The `ai-dev-team:dev-team` skill triggers on requests like "build feature X", "fix this bug", "add a screen", "make it a PWA", "add a new template", "review this branch", "security review", or invoke it explicitly with `/ai-dev-team:dev-team <request>`.
 
-The team writes nothing into the project repository — only the code and tests a task asks for. Its own files live outside the repo (details: `skills/dev-team/references/team-paths.md`):
-- `~/.local/state/ai-dev-team/projects/<project>/project-profile.md`: detected stack, verified commands and the resource budget, kept across runs.
-- `~/.local/state/ai-dev-team/projects/<project>/workspace/`: spec, plan, UI spec, threat model, task board, task notes, QC reports and screenshots of the current run; finished runs are archived beside it.
-- `~/.local/state/ai-dev-team/qa-tools/`: a Playwright install shared by all projects, used only when a project has none.
-- Scripts run straight from the installed plugin (`skills/project-profiling/references/`), so a plugin update takes effect without touching any repo: `run-heavy.sh` runs heavy commands (tests, builds, audits) one at a time at low CPU priority; `rule-checks.sh` and `overflow-check.mjs` decide the rules a machine can check (forbidden imports in feature code, list filters in web storage, AI attribution in commits, pre-release dependencies, text overflow on phone viewports).
+The team keeps its state in one repo folder, `.ai-dev-team/`, so specs, plans and decisions travel with the repo to every machine (details: `skills/dev-team/references/team-paths.md`):
+- `.ai-dev-team/project-profile.md`: detected stack, verified commands and the resource budget, kept across runs.
+- `.ai-dev-team/workspace/`: spec, plan, UI spec, threat model, task board, task notes, QC reports and mockups of the current run; finished runs are archived beside it. Commit it with the work; screenshots, contact sheets and recordings are ignored by `.ai-dev-team/.gitignore`.
+- `~/.local/state/ai-dev-team/qa-tools/`: a Playwright install shared by all projects on this machine, used only when a project has none.
+- Scripts run straight from the installed plugin (`skills/project-profiling/references/`), so a plugin update takes effect without touching any repo: `run-heavy.sh` runs heavy commands (tests, builds, audits) one at a time at low CPU priority; `rule-checks.sh` and `overflow-check.mjs` decide the rules a machine can check.
 
-Projects used with an older version get their `.claude/team/` and `_workspace/` moved out on the next run. To avoid permission prompts for writes outside the project, add `~/.local/state/ai-dev-team` to `permissions.additionalDirectories` in your Claude Code settings.
+Projects used with an older version get their `.claude/team/`, `_workspace/` or `~/.local/state/ai-dev-team/projects/<project>/` moved into `.ai-dev-team/` on the next run.
 
 The final review phase uses the Workflow tool and runs when a feature has 4 or more tasks or anything security-related (always for review-only requests). Invoking the `dev-team` skill counts as consent; it stays small (≤ 3 reviewers + verifiers) unless you ask for a thorough review.
 

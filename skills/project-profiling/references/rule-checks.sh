@@ -12,6 +12,8 @@
 #   flutter-overflow <log>  COMPACT-6 "overflowed" in saved flutter test / run output
 #   ai-look [dir...]        REAL-2/4  placeholder copy (lorem ipsum, John Doe, Acme) and gradient text (candidates)
 #   all [base]              every check above except flutter-overflow
+#   staged-media            BASE-7    images or video staged under .ai-dev-team/ (they must stay git-ignored);
+#                                     run before every commit that includes team files
 #   build-id                not a check: prints one id of the working tree (HEAD + uncommitted changes +
 #                           untracked files), equal for every agent on the same tree; screenshots record it
 # Exit: 0 no violation (or the check does not apply here), 1 violations found, 64 usage error.
@@ -19,7 +21,7 @@
 set -u
 
 SRC_EXT=(--include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.vue' --include='*.mjs')
-SKIP_DIRS=(--exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude-dir=.git --exclude-dir=coverage)
+SKIP_DIRS=(--exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude-dir=.git --exclude-dir=coverage --exclude-dir=.ai-dev-team)
 
 # Prints grep hits prefixed with the rule ID; returns 1 when there were any.
 report() {
@@ -32,12 +34,12 @@ report() {
 }
 
 feature_dirs() {
-  find . \( -name node_modules -o -name .git -o -name dist -o -name build \) -prune -o \
+  find . \( -name node_modules -o -name .git -o -name dist -o -name build -o -name .ai-dev-team \) -prune -o \
     -type d \( -path '*/src/features' -o -path '*/src/pages' \) -print
 }
 
 source_dirs() {
-  find . \( -name node_modules -o -name .git -o -name dist -o -name build \) -prune -o \
+  find . \( -name node_modules -o -name .git -o -name dist -o -name build -o -name .ai-dev-team \) -prune -o \
     -type d -name src -print
 }
 
@@ -160,7 +162,7 @@ sha1_stdin() {
 
 # Same tree, same id: HEAD, the diff of tracked files against it and every untracked,
 # non-ignored file (name and content, sorted). Outside git: the newest 200 file mtimes.
-# The team's own output (_workspace*, .claude/) is left out, so writing screenshots or
+# The team's own output (.ai-dev-team/, _workspace*, .claude/) is left out, so writing screenshots or
 # notes does not change the id of the code under test.
 build_id() {
   local top
@@ -170,12 +172,12 @@ build_id() {
       local listed=(--others)
       if git rev-parse --verify --quiet HEAD >/dev/null; then
         git rev-parse HEAD
-        git -c core.quotepath=off diff --no-ext-diff --no-color --binary HEAD -- . ':(exclude)_workspace*' ':(exclude).claude'
+        git -c core.quotepath=off diff --no-ext-diff --no-color --binary HEAD -- . ':(exclude)_workspace*' ':(exclude).claude' ':(exclude).ai-dev-team'
       else
         echo "no-head"
         listed=(--cached --others)
       fi
-      git ls-files -z "${listed[@]}" --exclude-standard -- . ':(exclude)_workspace*' ':(exclude).claude' | LC_ALL=C sort -z -u | while IFS= read -r -d '' f; do
+      git ls-files -z "${listed[@]}" --exclude-standard -- . ':(exclude)_workspace*' ':(exclude).claude' ':(exclude).ai-dev-team' | LC_ALL=C sort -z -u | while IFS= read -r -d '' f; do
         printf '%s\0' "$f"
         [ -f "$f" ] && cat "$f"
         printf '\0'
@@ -184,13 +186,21 @@ build_id() {
   else
     local fmt=(-f '%m %N')
     if stat -c '%Y %n' . >/dev/null 2>&1; then fmt=(-c '%Y %n'); fi
-    find . \( -name node_modules -o -name .git -o -name '_workspace*' -o -name .claude \) -prune -o -type f -print0 \
+    find . \( -name node_modules -o -name .git -o -name '_workspace*' -o -name .claude -o -name .ai-dev-team \) -prune -o -type f -print0 \
       | xargs -0 stat "${fmt[@]}" 2>/dev/null | LC_ALL=C sort -k1,1nr -k2 | head -n 200 | sha1_stdin
   fi
 }
 
 check="${1:-}"
 [ "$#" -gt 0 ] && shift
+check_staged_media() {
+  git rev-parse --git-dir >/dev/null 2>&1 || { echo "BASE-7 ok (not a git repository)"; return 0; }
+  local hits
+  hits=$(git diff --cached --name-only --diff-filter=AM -- .ai-dev-team \
+    | grep -iE '\.(png|jpe?g|webp|gif|mp4|webm)$' | sed 's|$|: staged image or video (git rm --cached it, fix .ai-dev-team/.gitignore)|')
+  report BASE-7 "$hits"
+}
+
 case "$check" in
   arch) check_arch ${@+"$@"} ;;
   list-storage) check_list_storage ${@+"$@"} ;;
@@ -198,6 +208,7 @@ case "$check" in
   prerelease) check_prerelease ;;
   flutter-overflow) check_flutter_overflow ${@+"$@"} ;;
   ai-look) check_ai_look ${@+"$@"} ;;
+  staged-media) check_staged_media ;;
   build-id) build_id ;;
   all)
     status=0

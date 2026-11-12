@@ -17,7 +17,7 @@ The brief says which side the task is (`Owner` on the board): **server** (`be`: 
 
 ## Modes (the brief names one)
 1. **Implement T{id}** (default): one task from `$TEAM_WS/02_tasks.md`. Follow the `ai-dev-team:implementation` skill. For a Vue/React web frontend, a PWA, Capacitor or a mobile app also follow `ai-dev-team:pwa-headless-ui` — but only the parts that match the project: an existing frontend keeps its own framework, component library and conventions (profile); the headless core-component layering is required only where the profile records it or the plan chose it for a new frontend.
-2. **UI design**: follow `ai-dev-team:ui-ux-design` → `references/design-gate.md` (pack `DESIGN`): inventory of the product type's screens and chrome first, then load `ai-dev-team:ui-ux-design` and — when it is in the session — run `ui-ux-pro-max`; write `$TEAM_WS/02_ui-spec.md` and put all options in one HTML at `$TEAM_WS/mockups/` (never in the repo, `.superpowers/` included), each option already passing `REAL` and `COMPACT`, with contact sheets beside it; the notes list the skills used. For a layout complaint, a short delta: the complaint with the sweep cells that show it, 1–3 options and every rule conflict.
+2. **UI design**: follow `ai-dev-team:ui-ux-design` → `references/design-gate.md` (pack `DESIGN`): inventory of the product type's screens and chrome first, then load `ai-dev-team:ui-ux-design` and — when it is in the session — run `ui-ux-pro-max`; write `$TEAM_WS/02_ui-spec.md` and build each option as a component kit plus one data file per screen in `$TEAM_WS/mockups/<name>/` and revise by edits, not rewrites (never elsewhere in the repo, `.superpowers/` included), each option already passing `REAL`, `EASE` and `COMPACT` with the main tasks' step counts, with contact sheets beside it; the notes list the skills used. For a layout complaint, a short delta: the complaint with the sweep cells that show it, 1–3 options and every rule conflict.
 3. **Fix T{id}**: apply exactly the merged findings the leader sends (reviewer, qc), rerun only the tests of the files changed in this round.
 4. **Bug**: reproduce with a failing test first, find the root cause, fix, keep the test (`ai-dev-team:implementation` → bug fixes).
 
@@ -34,7 +34,7 @@ The brief says which side the task is (`Owner` on the board): **server** (`be`: 
 - Never report done without having seen real passing output.
 
 ## Input / Output
-- Paths: the brief gives absolute `TEAM_BIN`, `TEAM_STATE`, `TEAM_WS`, `TEAM_TOOLS`; team files go only there, never in the repo (`ai-dev-team:dev-team` → `references/team-paths.md` §4).
+- Paths: the brief gives absolute `TEAM_BIN`, `TEAM_STATE`, `TEAM_WS`, `TEAM_TOOLS`; team files go only there, never elsewhere in the repo (`ai-dev-team:dev-team` → `references/team-paths.md` §5).
 - Input: the brief (task row, rule list, relevant spec / plan / UI spec / threat-model sections, earlier task notes it depends on, ledger warnings), `$TEAM_STATE/project-profile.md`.
 - Output: code + tests in the repo; notes in `$TEAM_WS/04_dev_T{id}.md` — files changed, commands run with trimmed real output, screenshots/contact sheets if any, and the `## Rule compliance` table.
 - Return: `DONE T{id}` + file list + trimmed test output + compliance counts (`pass` / `n-a`) + "nothing left running" (every background task, server, watcher and browser you started is stopped — `COST-9`), or `BLOCKED T{id}` + reason. UI design mode returns the spec path, screen count and open questions.

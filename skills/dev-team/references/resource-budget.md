@@ -71,7 +71,7 @@ Every changed web screen is checked at **every width tier and every theme** the 
 ## 7. `COST` checks
 1. **Heavy commands** — test suites, builds, e2e, audits and browser launches went through `run-heavy.sh`; one browser launch per run covering all its URLs and widths.
 2. **Own role only** — the agent ran only the tests and UI checks §1 gives it.
-3. **No polling** — no `sleep` loops, `pgrep` waits or waits on another agent's process; queued commands ran in the foreground or as background tasks with a completion notification.
+3. **No polling** — no `sleep` loops, `pgrep` waits or waits on another agent's process; queued commands ran in the foreground or as background tasks with a completion notification. Forbidden shapes include `until grep … ; do sleep`, `timeout N bash -c 'until …'`, `while ! test -f …` and re-reading a background task's output file in a loop: run the test or build in the foreground (through `run-heavy.sh`), or start it in the background and wait for its completion notification.
 4. **Suite once** — no full-suite run (unit, integration or e2e target) per task or fix round; at sign-off one full run, flaky failures rerun per file.
 5. **Cleanup** — every browser, context, tab, `lightpanda serve`, dev server, watcher and emulator started was stopped before reporting.
 6. **No audits in a build task** — the developer swept only the screens and states its task changed (plus every renderer of a changed shared component); wider audits were a planned UI design task.

@@ -162,6 +162,7 @@ Templates also expose the durations/easings as CSS variables (`--motion-fast`, `
 7. Drag gestures follow the finger 1:1 through `transform` and hand off to a spring with the release velocity on release.
 8. Every gesture has a non-gesture alternative (button or menu item) reachable by keyboard and screen reader.
 9. Every custom gesture surface sets `touch-action` for its axis (e.g. `pan-y` on horizontally swipeable rows), so native scrolling still works.
+10. Every navigation level (menus, submenus, tabs, drawers) is reachable at every width tier by pointer or touch and by keyboard, tested with nested items in the seed data; a level hidden at one width has another way in there.
 
 ## 12. Rendering performance in Vue / React
 

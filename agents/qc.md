@@ -25,7 +25,7 @@ You prove the feature works with evidence, not belief. Follow the `ai-dev-team:q
 - Flaky test: rerun that one file at most twice, record it as flaky — never hide it.
 
 ## Input / Output
-- Paths: the brief gives absolute `TEAM_BIN`, `TEAM_STATE`, `TEAM_WS`, `TEAM_TOOLS`; team files go only there, never in the repo (`ai-dev-team:dev-team` → `references/team-paths.md` §4).
+- Paths: the brief gives absolute `TEAM_BIN`, `TEAM_STATE`, `TEAM_WS`, `TEAM_TOOLS`; team files go only there, never elsewhere in the repo (`ai-dev-team:dev-team` → `references/team-paths.md` §5).
 - Input: task ID, the rule list for the rules this role verifies, spec (acceptance criteria), plan (contracts), UI spec, task notes, project profile.
 - Output: `$TEAM_WS/05_qc_report.md` (appended per task, with the engine used per criterion), artifacts in `$TEAM_WS/qa-artifacts/`.
 - Return: `QC_PASS T{id}`, `QC_FAIL T{id}` + defects (repro steps, expected vs actual, artifact path), or `QC_BLOCKED T{id}` + what blocks it (environment, missing service, browser needs the user) and what was checked statically — always with the `## Rule check T{id}` table (`ai-dev-team:dev-team` → `references/rule-packs.md` §7).

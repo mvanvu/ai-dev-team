@@ -1,22 +1,23 @@
 # Team paths
 
-The team writes nothing into the project repository: no profile, no workspace, no scripts. Scripts run from the installed plugin, and everything a run produces lives in a per-project state directory outside the repo. A plugin update therefore never leaves stale copies behind, and `git status` stays clean.
+The team keeps its state inside the project repository, in one folder, `.ai-dev-team/`, so the spec, plan, board, notes and decisions travel with the repo to every machine and branch. Scripts still run from the installed plugin, so a plugin update never leaves stale copies behind. Large, machine-specific output (screenshots, contact sheets, browser installs) stays out of git.
 
 ## Contents
 1. The four paths
 2. Resolving them
-3. Moving files left by older versions
-4. Rules for every agent
+3. What is committed
+4. Moving files left by older versions
+5. Rules for every agent
 
 ## 1. The four paths
 | Name | What | Value |
 |---|---|---|
 | `TEAM_BIN` | team scripts: `run-heavy.sh`, `rule-checks.sh`, `overflow-check.mjs` | the installed plugin's `skills/project-profiling/references/` |
-| `TEAM_STATE` | this project's state, kept across runs: `project-profile.md`, archived workspaces `workspace_<YYYYMMDD-HHMM>/` | `${XDG_STATE_HOME:-~/.local/state}/ai-dev-team/projects/<slug>` |
-| `TEAM_WS` | the current run: spec, plan, task board, task notes, QC report, `qa-artifacts/`, ledgers | `$TEAM_STATE/workspace` |
-| `TEAM_TOOLS` | QA tools shared by all projects (a Playwright install when the project has none) | `${XDG_STATE_HOME:-~/.local/state}/ai-dev-team/qa-tools` |
+| `TEAM_STATE` | this project's state, kept across runs: `project-profile.md`, `seed/`, `flows/`, archived workspaces `workspace_<YYYYMMDD-HHMM>/` | `<repo root>/.ai-dev-team` |
+| `TEAM_WS` | the current run: spec, plan, UI spec, threat model, task board, task notes, QC report, `mockups/`, `qa-artifacts/`, ledgers | `$TEAM_STATE/workspace` |
+| `TEAM_TOOLS` | QA tools shared by all projects on this machine (a Playwright install when the project has none) | `${XDG_STATE_HOME:-~/.local/state}/ai-dev-team/qa-tools` |
 
-`<slug>` is the absolute path of the main repository root with every character other than a letter or digit replaced by `-`. Git worktrees of one repository resolve to the same root, so a worktree task shares the state of its project.
+`<repo root>` is the main repository root; git worktrees of one repository resolve to the same root, so a worktree task shares the state of its project.
 
 ## 2. Resolving them
 The leader resolves the paths once per session, in Phase 0:
@@ -24,10 +25,12 @@ The leader resolves the paths once per session, in Phase 0:
 ```bash
 common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
 root=${common:+$(dirname "$common")}; root=${root:-$(pwd)}
-base="${XDG_STATE_HOME:-$HOME/.local/state}/ai-dev-team"
-TEAM_STATE="$base/projects/$(printf %s "$root" | tr -c 'A-Za-z0-9' '-')"
-TEAM_WS="$TEAM_STATE/workspace"; TEAM_TOOLS="$base/qa-tools"
+TEAM_STATE="$root/.ai-dev-team"; TEAM_WS="$TEAM_STATE/workspace"
+TEAM_TOOLS="${XDG_STATE_HOME:-$HOME/.local/state}/ai-dev-team/qa-tools"
 mkdir -p "$TEAM_WS"
+for p in '**/qa-artifacts/' '**/sheets/' '**/*.png' '**/*.jpg' '**/*.jpeg' '**/*.webp' '**/*.gif' '**/*.mp4' '**/*.webm'; do
+  grep -qxF "$p" "$TEAM_STATE/.gitignore" 2>/dev/null || echo "$p" >> "$TEAM_STATE/.gitignore"
+done
 echo "TEAM_STATE=$TEAM_STATE TEAM_WS=$TEAM_WS TEAM_TOOLS=$TEAM_TOOLS"
 ```
 
@@ -35,17 +38,22 @@ echo "TEAM_STATE=$TEAM_STATE TEAM_WS=$TEAM_WS TEAM_TOOLS=$TEAM_TOOLS"
 
 Every brief starts with the four absolute values (`TEAM_BIN=… TEAM_STATE=… TEAM_WS=… TEAM_TOOLS=…`), plus `PLAYWRIGHT_DIR=<profile playwright_dir>` when the task uses a browser. Agents never recompute them and never use relative paths for team files. Shell state does not carry over between tool calls, so commands use the absolute paths, not the variable names.
 
-## 3. Moving files left by older versions
-Before anything else, when the repo still holds team files from an older version:
-1. `.claude/team/project-profile.md` → `$TEAM_STATE/project-profile.md` (keep the newer one when both exist). Rewrite its commands from `.claude/team/<script>` to `$TEAM_BIN/<script>`.
-2. `.claude/team/run-heavy.sh`, `rule-checks.sh`, `overflow-check.mjs` → delete. Remove `.claude/team/` when it is empty.
-3. `_workspace/` → `$TEAM_WS/` (only when `$TEAM_WS` is empty; otherwise archive it as `$TEAM_STATE/workspace_<timestamp>/`); each `_workspace_*/` → `$TEAM_STATE/`.
-4. `.superpowers/` (mockups, brainstorm and plan files written by `superpowers` during a team run) → `$TEAM_WS/mockups/` and `$TEAM_WS/`; ask first when the user keeps their own files there.
-5. Remove the lines the team added to `.git/info/exclude` (`_workspace/`, `_workspace_*/`, `.claude/team/`). Entries in a tracked `.gitignore` are the user's: mention them, do not edit.
-6. Any of these files tracked by git → ask the user before moving, since that changes the repository.
+## 3. What is committed
+- Everything under `.ai-dev-team/` is meant to be committed with the work it belongs to — profile, spec, plan, UI spec, board, notes, ledgers, mockups, seeds, flows — except generated images and video — `qa-artifacts/`, contact `sheets/`, screenshots and recordings (`*.png`, `*.jpg`, `*.webp`, `*.mp4`, `*.webm`) — which are large and rebuilt on demand; `.ai-dev-team/.gitignore` leaves them out. Mockups stay committed as their HTML, kit and screen data files; images a mockup needs come from the project's own assets or are inlined small.
+- The team still never commits on its own (`BASE-7`): the files show up in `git status` and go in with the user's commit. When the user asks for a commit, `.ai-dev-team/` changes are included unless the user says otherwise.
+- The resolve snippet adds any ignore line missing from an existing `.ai-dev-team/.gitignore` (one written by an older version included) and keeps lines the user added. Before every commit that includes team files, the leader runs `$TEAM_BIN/rule-checks.sh staged-media`; a hit is unstaged with `git rm --cached` and the ignore file fixed before the commit is made.
+- On another machine, Phase 0 finds `.ai-dev-team/` in the checkout and resumes from its board like any resume. The profile's machine-specific fields (`playwright_dir`, heavy worker counts) are re-checked there.
 
-## 4. Rules for every agent
-- Team files (notes, reports, screenshots, mockups, throwaway scripts and specs, downloaded tools, files of third-party skills run by the team such as `.superpowers/`) are written only under `TEAM_WS`, `TEAM_STATE` or `TEAM_TOOLS` — never in the repo. The repo receives only the code and tests the task asks for, and the approved mockup in the profile's `mockup_dir` (`ai-dev-team:ui-ux-design` → `references/design-gate.md` §5).
+## 4. Moving files left by older versions
+Before anything else, when team files of an older version exist:
+1. `~/.local/state/ai-dev-team/projects/<slug>/` (state kept outside the repo; `<slug>` is the repo root path with every character other than a letter or digit replaced by `-`) → `.ai-dev-team/`: profile, `workspace/`, `workspace_*/`, `seed/`, `flows/` (keep the newer file when both exist). Leave the old folder in place and tell the user it can be deleted.
+2. `.claude/team/project-profile.md` → `.ai-dev-team/project-profile.md`; delete `.claude/team/run-heavy.sh`, `rule-checks.sh`, `overflow-check.mjs`; remove `.claude/team/` when empty.
+3. `_workspace/` → `$TEAM_WS/` (or `$TEAM_STATE/workspace_<timestamp>/` when `$TEAM_WS` is not empty); each `_workspace_*/` → `$TEAM_STATE/`.
+4. `.superpowers/` (mockups, brainstorm and plan files written by `superpowers` during a team run) → `$TEAM_WS/mockups/` and `$TEAM_WS/`; ask first when the user keeps their own files there.
+5. Profile commands that hold `.claude/team/<script>` or a versioned plugin path are rewritten to `$TEAM_BIN/<script>`. Lines the team added to `.git/info/exclude` (`_workspace/`, `_workspace_*/`, `.claude/team/`) are removed.
+
+## 5. Rules for every agent
+- Team files (notes, reports, screenshots, mockups, throwaway scripts and specs, files of third-party skills run by the team such as `.superpowers/`) are written only under `TEAM_STATE` / `TEAM_WS`, and downloaded tools only under `TEAM_TOOLS` — never anywhere else in the repo. The rest of the repo receives only the code and tests the task asks for, and the approved mockup in the profile's `mockup_dir` (`ai-dev-team:ui-ux-design` → `references/design-gate.md` §5).
 - Commands run with the project root as the working directory; the scripts find the project from there.
-- A tool that can only write inside the project (some browser MCP servers restrict their output directory) saves there, and the agent moves the file to `$TEAM_WS/qa-artifacts/` right away.
-- Writing outside the project may ask for permission. To avoid prompts, the user can add `~/.local/state/ai-dev-team` to `permissions.additionalDirectories` in their Claude Code settings; the plugin never edits settings itself.
+- A tool that can only write to its own output directory (some browser MCP servers) saves there, and the agent moves the file to `$TEAM_WS/qa-artifacts/` right away.
+- `TEAM_TOOLS` is outside the project, so installing Playwright there may ask for permission once; the user can add `~/.local/state/ai-dev-team` to `permissions.additionalDirectories`. The plugin never edits settings itself.

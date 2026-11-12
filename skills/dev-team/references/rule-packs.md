@@ -37,6 +37,7 @@ Paths are relative to the plugin's `skills/` directory. "Verified by" names the 
 | `PTR` | builds or changes a phone screen that shows server data in a vertically scrolling list or feed (mobile web, PWA, Capacitor, Flutter, native) | `pwa-headless-ui/references/pull-to-refresh.md` | §8 | qc, reviewer |
 | `DESIGN` | is a UI design task (developer in UI design mode: UI spec, mockups, layout options) | `ui-ux-design/references/design-gate.md` | §6 | reviewer (design QA), leader for `DESIGN-6` |
 | `REAL` | builds or changes any user-facing screen, template pack or marketing page | `ui-ux-design/references/authentic-design.md` | §5 | reviewer |
+| `EASE` | builds, changes or designs any user-facing screen (always together with `REAL`) | `ui-ux-design/references/ease-of-use.md` | §3 | reviewer (design QA), qc for `EASE-5` on the build |
 | `CONN` | touches a mobile app or installed PWA that uses online data | `pwa-headless-ui/references/connectivity.md` | §10 | qc |
 | `FEEL` | touches navigation, page transitions, gestures, sheets/overlays or long lists | `pwa-headless-ui/references/native-feel.md` | §11 | reviewer, qc |
 | `PWA` | touches the manifest, service worker, caching, offline fallback or update flow | `pwa-headless-ui/references/pwa.md` | Checks section | qc |
@@ -61,7 +62,8 @@ A check that names a tool or environment the task cannot use (a device, Xcode, a
 8. **Dependencies** — no new dependency without a stated reason (maintained, size/cost acceptable, no existing utility does it).
 9. **Security defaults** — input validated at the boundary, parameterized queries, an authorization check on every entry point, no secrets in code or logs.
 10. **Test scope** — per task and per fix round only the related tests of the changed files and the mapped guards ran (no whole-suite or all-guards runs); failures outside the task are reported as `not mine`, not chased with reruns.
-11. **Shared tree** — no `git stash`, `checkout`, `restore`, `reset` or branch switch on the working tree other agents share; to show a test failing without the change, copy the file to `$TEAM_WS/` and copy it back, or write the test before the code.
+11. **Shared tree** — no `git stash`, `checkout`, `restore`, `reset`, branch switch, or moving / deleting tracked files on the working tree other agents share; to show a test failing without the change, copy the file to `$TEAM_WS/` and copy it back, or write the test before the code.
+12. **Other repositories** — nothing was written outside this repository unless the brief names that repository and its files and states the user approved it.
 
 ## 4. `TOOL` — greenfield toolchain
 1. Installed versions equal the design's `## Toolchain` table; anything not in the table was looked up at install time, not recalled.
