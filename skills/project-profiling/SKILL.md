@@ -49,6 +49,7 @@ ui_themes: light | light,dark
 ui_theme_set: <js snippet, only when not prefers-color-scheme>
 ui_seed: <$TEAM_STATE/seed/<name>.js per screen group, or URLs / fixture commands; none yet>
 ui_flows: <$TEAM_STATE/flows/<name>.mjs — reusable UI steps (login, open record, open dialog); none yet>
+design_taste: usability-first <plus lasting look-and-feel preferences the user stated, e.g. bright energetic palette>
 mockup_dir: <repo directory where approved mockups are kept, e.g. docs/mockups; none = not kept>
 playwright_dir: <directory whose node_modules has Playwright: the project root, an existing install, or $TEAM_TOOLS; none>
 heavy_workers: N

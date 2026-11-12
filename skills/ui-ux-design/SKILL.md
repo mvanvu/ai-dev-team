@@ -8,7 +8,7 @@ description: "Produces a web/mobile UI spec: user flows, screen inventory, wiref
 The UI spec removes visual guesswork from implementation. A developer should be able to build every screen state from it without asking.
 
 ## Procedure
-In UI design mode follow `references/design-gate.md` (pack `DESIGN`) around these steps: inventory first, one HTML of options in `$TEAM_WS/mockups/`, design QA before the user sees it.
+In UI design mode follow `references/design-gate.md` (pack `DESIGN`) around these steps: inventory first, options built kit-first as small files in `$TEAM_WS/mockups/<name>/`, design QA before the user sees it.
 
 1. Read the spec (`has_ui`, `platforms`), project profile (`ui:` field) and existing UI code: components, theme/tokens, CSS/Tailwind config, navigation.
 2. **Flows**: map each acceptance criterion to the screens and steps the user goes through.
@@ -38,6 +38,9 @@ When `ui-ux-pro-max` is installed, use it for palette, font-pairing and stack da
 
 ```markdown
 # UI Spec: <feature>
+## Main tasks
+| Task | Start point | Steps |
+|---|---|---|
 platforms: web | ios | android
 ## Flows
 ## Screens
@@ -57,4 +60,4 @@ platforms: web | ios | android
 
 ## Design QA
 Compare the implemented UI to the spec (read code and the contact sheets of this build — every width × theme per screen — from the developer and qc; capture yourself only a state no sheet shows, through `$TEAM_BIN/run-heavy.sh` — `ai-dev-team:dev-team` → `references/resource-budget.md` §1). Report each deviation as `blocker` (missing state, broken flow, a11y failure), `major` (wrong token/layout at a breakpoint; on phones: text overflowing or clipped without ellipsis, horizontal page scroll, wasted space such as stacked buttons that fit one row or dead space beside/under a row icon — `ai-dev-team:pwa-headless-ui` → `references/compact-layout.md` §7), `minor` (spacing/polish), with `file:line`.
-When the task's `Rules` include a pack that names `reviewer` for design QA in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 (`COMPACT`, `REAL`, `SWEEP`), also return the `## Rule check T{id}` table: one row per rule ID, `pass | fail | n-o` with evidence (`file:line` or screenshot); a `fail` is a deviation with the rule ID in its title.
+When the task's `Rules` include a pack that names `reviewer` for design QA in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 (`COMPACT`, `REAL`, `EASE`, `SWEEP`), also return the `## Rule check T{id}` table: one row per rule ID, `pass | fail | n-o` with evidence (`file:line` or screenshot); a `fail` is a deviation with the rule ID in its title.

@@ -28,7 +28,7 @@ You find real defects — wrong behavior, exploitable paths, broken contracts, U
 - Check the task's rules yourself: open the developer's evidence, then the code (`ai-dev-team:dev-team` → `references/rule-packs.md` §7).
 
 ## Input / Output
-- Paths: the brief gives absolute `TEAM_BIN`, `TEAM_STATE`, `TEAM_WS`, `TEAM_TOOLS`; team files go only there, never in the repo (`ai-dev-team:dev-team` → `references/team-paths.md` §4).
+- Paths: the brief gives absolute `TEAM_BIN`, `TEAM_STATE`, `TEAM_WS`, `TEAM_TOOLS`; team files go only there, never elsewhere in the repo (`ai-dev-team:dev-team` → `references/team-paths.md` §5).
 - Input: task ID and diff scope, the developer's notes, the rule list for the rules this role verifies, relevant spec / plan / UI spec / threat-model sections.
 - Output: `APPROVED` or `CHANGES_REQUESTED` + findings + the `## Rule check T{id}` table. Threat model mode: the file path and the `SEC-n` list.
 - Workflow mode: JSON only; the final text is data, not a message to the user.
