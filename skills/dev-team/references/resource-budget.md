@@ -58,7 +58,7 @@ Every changed web screen is checked at **every width tier and every theme** the 
 - One `qc` agent runs sign-off; it is not split into parallel agents per area.
 - The full suite runs once. A failure → rerun that one file up to 3 times; a test that fails only sometimes is a defect. Never rerun the whole suite to prove stability.
 - UI: the cross-task flows of the spec, plus one sweep over every web screen the feature touched (Flutter/native: the widget/golden suites once), every contact sheet looked at.
-- Sign-off starts only after the last task is confirmed (its review, qc or quick-pass re-check done).
+- Sign-off starts only after the last task is confirmed (its review, qc or quick-pass re-check done); docs-only tasks (dev-team routing) do not count.
 - **Light sign-off** — a run made only of light-tier tasks (small changes, layout complaints): one `qc` runs the union of the tasks' related tests and guards, the type-check, and one smoke pass of the touched flows; no full suite, no sweep (each task already swept its states). The full suite runs instead when the user asks to commit, push or open a PR, or when the run touched shared code (shared modules, schema, build config).
 - **Build currency** is checked with `$TEAM_BIN/rule-checks.sh build-id` against the `build-id.txt` beside the last sheets — never by rebuilding. A different id means the last build is stale: report it; rebuild only when the leader says so.
 
