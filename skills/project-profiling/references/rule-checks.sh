@@ -7,7 +7,9 @@
 #   arch [dir...]           ARCH-1    feature/page code importing headless or interaction libraries, or a template pack
 #   list-storage [dir...]   LIST-4    list state (filters, sort, page, search) kept in web storage
 #   commits [base]          BASE-7    AI attribution in commit messages of base..HEAD (default: upstream, else the
-#                                     merge-base with the default branch); an unknown base exits 64
+#                                     merge-base with the default branch), only when the project forbids it
+#                                     (CLAUDE.md says so, or .claude/settings.json sets attribution to ""); an unknown
+#                                     base exits 64
 #   prerelease              TOOL-2    pre-release versions in package.json / pubspec.yaml dependencies
 #   flutter-overflow <log>  COMPACT-6 "overflowed" in saved flutter test / run output
 #   ai-look [dir...]        REAL-2/4  placeholder copy (lorem ipsum, John Doe, Acme) and gradient text (candidates)
@@ -22,6 +24,8 @@
 #                           key names, never values
 #   build-id                not a check: prints one id of the working tree (HEAD + uncommitted changes +
 #                           untracked files), equal for every agent on the same tree; screenshots record it
+#   stray-team-files        not a check: team or third-party skill files left outside .ai-dev-team/ (.superpowers/,
+#                           _workspace*/, .claude/team/, mockup folders in the source tree); move them to $TEAM_WS
 #   task-base <id>          not a check: records the tree as it is now (tracked + untracked, ignored files and
 #                           .ai-dev-team/ left out) as the start of task <id>, in .ai-dev-team/workspace/.task-base/;
 #                           uses a copy of the index, so the real index and the working tree are untouched
@@ -96,8 +100,15 @@ default_branch() {
   done
 }
 
+attribution_forbidden() {
+  # The project forbids AI attribution when its settings blank the commit attribution or its CLAUDE.md says so.
+  if [ -f .claude/settings.json ] && grep -Eq '"(commit|attribution)"[[:space:]]*:[[:space:]]*""' .claude/settings.json; then return 0; fi
+  [ -f CLAUDE.md ] && grep -Eiq 'no ai attribution|without ai attribution|no .?co-authored-by|never .*co-authored-by' CLAUDE.md
+}
+
 check_commits() {
   git rev-parse --git-dir >/dev/null 2>&1 || { echo "BASE-7 n-a: not a git repository"; return 0; }
+  attribution_forbidden || { echo "BASE-7 n-a: the project does not forbid AI attribution (its CLAUDE.md and settings say nothing against it)"; return 0; }
   local base="${1:-}" branch
   if [ -n "$base" ]; then
     if ! git rev-parse --verify --quiet "$base^{commit}" >/dev/null; then
@@ -246,6 +257,19 @@ env_drift() {
   return 0
 }
 
+stray_team_files() {
+  local hits="" d
+  for d in .superpowers _workspace .claude/team; do [ -e "$d" ] && hits="$hits$d/: move to \$TEAM_WS (team-paths.md §4)"$'\n'; done
+  for d in _workspace_*; do [ -e "$d" ] && hits="$hits$d/: move to \$TEAM_STATE"$'\n'; done
+  # Mockup code inside a source tree (lib/mockup*, src/mockup*, apps/*/lib/mockup*): stage-1 drafts belong in $TEAM_WS/mockups.
+  while IFS= read -r d; do [ -n "$d" ] && hits="$hits$d: mockup code in the source tree (DESIGN-14)"$'\n'; done \
+    < <(find . -path ./node_modules -prune -o -path ./.git -prune -o -path ./.ai-dev-team -prune -o -type d \
+        \( -path '*/lib/mockup*' -o -path '*/src/mockup*' \) -print 2>/dev/null | head -20)
+  if [ -z "$hits" ]; then echo "stray-team-files ok"; return 0; fi
+  printf '%s' "$hits" | sed '/^$/d; s|^|stray-team-files |'
+  return 1
+}
+
 task_tree() {
   # Writes the current tree (tracked + untracked, ignored files and .ai-dev-team/ excluded) to the object store
   # through a copy of the index, and prints its id. The real index and the working tree are not changed.
@@ -288,6 +312,7 @@ case "$check" in
   tracked-media) check_tracked_media ${@+"$@"} ;;
   env-drift) env_drift ${@+"$@"} ;;
   build-id) build_id ;;
+  stray-team-files) stray_team_files ;;
   task-base) task_base ${@+"$@"} ;;
   task-diff) task_diff ${@+"$@"} ;;
   all)
@@ -303,7 +328,7 @@ case "$check" in
     exit "$status"
     ;;
   *)
-    sed -n '6,31p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '6,35p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

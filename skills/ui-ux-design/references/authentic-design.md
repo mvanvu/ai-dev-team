@@ -50,3 +50,4 @@ Unless the brief explicitly asks for them:
 5. One icon set with one stroke width; icons only where they aid recognition; no emoji as UI icons.
 6. Copy is short, specific and in the users' terms; no marketing tone inside the app; no instruction text the UI could make unnecessary.
 7. Motion is user-triggered and purposeful; no load-in animation on every element, no hover lift on non-interactive cards.
+8. No file name, slug, id or technical key is shown where a person would write a title (`dish-photo-0412.jpg` as a dish name, `ORDER_STATUS_SENT` as a label); content without a title shows a human fallback.
