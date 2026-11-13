@@ -14,6 +14,9 @@
 //          --port <n>       port for web/apk (default: a free random port)
 //          --minutes <n>    web/apk server stops by itself after n minutes (default 30)
 //          --svg <file>     also write the QR code as SVG (open it when the terminal cannot show the code)
+//          --light-bg       plain-text QR for a light background (default: dark background)
+// When stdout is not a terminal (a tool call, a log) the QR is printed as plain block characters between
+// `QR-BEGIN` and `QR-END` lines: paste that block, in a code block, into the reply to the user.
 // Exit: 0 done (server stopped, or device connected), 1 failure, 64 usage error.
 // Only the local network is used. Exposing the app to the internet (a tunnel) is never done by this script.
 
@@ -38,6 +41,8 @@ const host = opt('host', '') || lanAddress();
 const port = Number(opt('port', '0'));
 const minutes = Number(opt('minutes', '30'));
 const svgFile = opt('svg', '');
+const lightBg = args.includes('--light-bg') ? (args.splice(args.indexOf('--light-bg'), 1), true) : false;
+const tty = Boolean(process.stdout.isTTY);
 const target = args[0];
 
 function usage(msg) {
@@ -60,7 +65,8 @@ function lanAddress() {
 function showQr(text, caption) {
   console.log(`\n${caption}\n${text}\n`);
   const modules = encodeQr(text);
-  console.log(toTerminal(modules));
+  if (tty) console.log(toTerminal(modules));
+  else console.log(`QR-BEGIN\n${toTerminal(modules, { ansi: false, lightBg })}\nQR-END`);
   if (svgFile) { writeFileSync(svgFile, toSvg(modules)); console.log(`\nQR also written to ${svgFile}`); }
   console.log('');
 }

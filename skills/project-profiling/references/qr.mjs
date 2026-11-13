@@ -1,7 +1,7 @@
 // QR Code encoder (byte mode, versions 1-40, error correction L or M) with terminal and SVG output.
 // Adapted from the Project Nayuki QR Code generator library (MIT License) — see THIRD-PARTY-NOTICES.md.
 // Usage as a module: import { encodeQr, toTerminal, toSvg } from './qr.mjs'
-// Usage as a CLI:    node qr.mjs <text> [--svg <file>]
+// Usage as a CLI:    node qr.mjs <text> [--svg <file>] (plain text unless stdout is a terminal; --light-bg flips it)
 
 const ECC_CODEWORDS_PER_BLOCK = {
   L: [-1, 7, 10, 15, 20, 26, 18, 20, 24, 30, 18, 20, 24, 26, 30, 22, 24, 28, 30, 28, 28, 28, 28, 30, 30, 26, 28, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30],
@@ -226,18 +226,22 @@ export function encodeQr(text, ecl = 'M') {
   return modules;
 }
 
-// Dark modules black on a white background with a 4-module quiet zone, two rows per text line.
-export function toTerminal(modules) {
+// Two module rows per text line with a 4-module quiet zone.
+// ansi: black on white via escape codes (a real terminal). Without ansi the code is plain text for a chat
+// reply or a log: block characters draw the light modules, so it reads correctly on a dark background
+// (the usual terminal and chat theme); lightBg draws the dark modules instead, for a light background.
+export function toTerminal(modules, { ansi = true, lightBg = false } = {}) {
   const q = 4, size = modules.length;
   const dark = (x, y) => x >= 0 && y >= 0 && x < size && y < size && modules[y][x];
+  const drawn = (x, y) => (ansi || lightBg ? dark(x, y) : !dark(x, y));
   const lines = [];
   for (let y = -q; y < size + q; y += 2) {
-    let line = '\x1b[30;47m';
+    let line = ansi ? '\x1b[30;47m' : '';
     for (let x = -q; x < size + q; x++) {
-      const top = dark(x, y), bottom = dark(x, y + 1);
+      const top = drawn(x, y), bottom = drawn(x, y + 1);
       line += top && bottom ? '█' : top ? '▀' : bottom ? '▄' : ' ';
     }
-    lines.push(line + '\x1b[0m');
+    lines.push(ansi ? line + '\x1b[0m' : line);
   }
   return lines.join('\n');
 }
@@ -250,11 +254,12 @@ export function toSvg(modules, scale = 8) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [text, flag, file] = process.argv.slice(2);
+  const [text, flag, file] = process.argv.slice(2).filter((a) => a !== '--light-bg');
+  const lightBg = process.argv.includes('--light-bg');
   if (!text) { console.error('usage: node qr.mjs <text> [--svg <file>]'); process.exit(64); }
   const modules = encodeQr(text);
   if (flag === '--svg' && file) {
     const { writeFileSync } = await import('node:fs');
     writeFileSync(file, toSvg(modules));
-  } else console.log(toTerminal(modules));
+  } else console.log(toTerminal(modules, { ansi: Boolean(process.stdout.isTTY), lightBg }));
 }
