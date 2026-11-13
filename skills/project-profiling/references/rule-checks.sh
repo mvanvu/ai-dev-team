@@ -14,6 +14,12 @@
 #   all [base]              every check above except flutter-overflow
 #   staged-media            BASE-7    images or video staged under .ai-dev-team/ (they must stay git-ignored);
 #                                     run before every commit that includes team files
+#   tracked-media           BASE-7    images or video already tracked under .ai-dev-team/ (committed by an older
+#                                     ignore file); `--fix` removes them from the index, the files stay on disk
+#   env-drift [file]        not a check: keys of the example env file (.env.example, .env.dist, .env.sample)
+#                           missing from .env (or [file]), keys only .env has, and non-secret keys whose value
+#                           differs (names with PASS, SECRET, TOKEN, KEY, SALT, PRIVATE are skipped); prints
+#                           key names, never values
 #   build-id                not a check: prints one id of the working tree (HEAD + uncommitted changes +
 #                           untracked files), equal for every agent on the same tree; screenshots record it
 # Exit: 0 no violation (or the check does not apply here), 1 violations found, 64 usage error.
@@ -201,6 +207,39 @@ check_staged_media() {
   report BASE-7 "$hits"
 }
 
+check_tracked_media() {
+  git rev-parse --git-dir >/dev/null 2>&1 || { echo "BASE-7 ok (not a git repository)"; return 0; }
+  local hits
+  hits=$(git ls-files -- .ai-dev-team | grep -iE '\.(png|jpe?g|webp|gif|mp4|webm)$' || true)
+  if [ -n "$hits" ] && [ "${1:-}" = "--fix" ]; then
+    printf '%s\n' "$hits" | tr '\n' '\0' | xargs -0 git rm --cached -q --
+    echo "BASE-7 fixed: $(printf '%s\n' "$hits" | wc -l | tr -d ' ') image/video file(s) removed from the index (kept on disk); commit the removal"
+    return 0
+  fi
+  report BASE-7 "$(printf '%s' "$hits" | sed '/^$/d; s|$|: tracked image or video (tracked-media --fix)|')"
+}
+
+env_drift() {
+  local env="${1:-.env}" example="" f
+  for f in .env.example .env.dist .env.sample; do [ -f "$f" ] && { example="$f"; break; }; done
+  if [ -z "$example" ]; then echo "env-drift n-a: no .env.example / .env.dist / .env.sample"; return 0; fi
+  if [ ! -f "$env" ]; then echo "env-drift: $env missing; copy $example and fill in the secrets"; return 1; fi
+  keys() { sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}\([A-Za-z_][A-Za-z0-9_]*\)=.*/\2/p' "$1" | LC_ALL=C sort -u; }
+  pairs() { sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}\([A-Za-z_][A-Za-z0-9_]*\)=\(.*\)$/\2=\3/p' "$1" \
+    | grep -viE '^[^=]*(PASS|SECRET|TOKEN|KEY|SALT|PRIVATE)[^=]*=' | LC_ALL=C sort -u; }
+  local missing extra differs
+  missing=$(LC_ALL=C comm -23 <(keys "$example") <(keys "$env"))
+  extra=$(LC_ALL=C comm -13 <(keys "$example") <(keys "$env"))
+  differs=$(LC_ALL=C comm -23 <(pairs "$example") <(pairs "$env") | sed 's/=.*//' \
+    | LC_ALL=C comm -12 - <(keys "$env"))
+  if [ -z "$missing" ] && [ -z "$extra" ] && [ -z "$differs" ]; then echo "env-drift ok: $env matches the keys of $example"; return 0; fi
+  [ -n "$missing" ] && printf '%s\n' "$missing" | sed "s|^|env-drift missing in $env (present in $example): |"
+  [ -n "$extra" ] && printf '%s\n' "$extra" | sed "s|^|env-drift only in $env: |"
+  [ -n "$differs" ] && printf '%s\n' "$differs" | sed "s|^|env-drift value differs from $example (may be a local choice): |"
+  [ -n "$missing" ] && return 1
+  return 0
+}
+
 case "$check" in
   arch) check_arch ${@+"$@"} ;;
   list-storage) check_list_storage ${@+"$@"} ;;
@@ -209,6 +248,8 @@ case "$check" in
   flutter-overflow) check_flutter_overflow ${@+"$@"} ;;
   ai-look) check_ai_look ${@+"$@"} ;;
   staged-media) check_staged_media ;;
+  tracked-media) check_tracked_media ${@+"$@"} ;;
+  env-drift) env_drift ${@+"$@"} ;;
   build-id) build_id ;;
   all)
     status=0
@@ -223,7 +264,7 @@ case "$check" in
     exit "$status"
     ;;
   *)
-    sed -n '6,18p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '6,24p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

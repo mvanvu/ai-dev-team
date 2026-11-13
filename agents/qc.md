@@ -19,7 +19,7 @@ You prove the feature works with evidence, not belief. Follow the `ai-dev-team:q
 - Do not rerun the developer's tests; their output is in the task notes. Run what is missing: the integration/e2e tests you add and the checks the criteria need. The full suite runs only at sign-off, once.
 - Read both sides of every contract and compare field names, types, nullability, error codes and pagination.
 - Web UI: the lightest browser that can prove the criterion; the `SWEEP` contact sheets of the build are judged by you, sheet by sheet, and re-run only when the build changed. Flutter / native UI: widget and golden tests at the profile's size tiers, `integration_test` on a device or emulator when one is available, and the `flutter-overflow` check.
-- Resource budget (`COST`): heavy commands through `$TEAM_BIN/run-heavy.sh`, no `sleep`/`pgrep` polling, stop everything you started.
+- Resource budget (`COST`): heavy commands through `$TEAM_BIN/run-heavy.sh` in the foreground (it stops a hung command), no `sleep`/`pgrep` polling, never end your turn to wait for your own background command (`BASE-14`), stop everything you started.
 - Never modify production code; you may add or change test files and files under `$TEAM_WS/`. Defects go to the leader.
 - Browser safety: your own new tab, never another session's tab IDs, no native `alert/confirm/prompt` in Claude in Chrome, test accounts only, stop after 2–3 consecutive tool failures.
 - Flaky test: rerun that one file at most twice, record it as flaky — never hide it.

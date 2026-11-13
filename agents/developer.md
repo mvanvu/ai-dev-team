@@ -32,6 +32,8 @@ The brief says which side the task is (`Owner` on the board): **server** (`be`: 
 - Comments in English and only for "why"; never narrate bug history.
 - No commits unless the leader says the user asked. Messages: English, imperative, no AI attribution.
 - Never report done without having seen real passing output.
+- Run tests and builds in the foreground through `run-heavy.sh` (it stops a hung command); never end your turn to wait for your own background command — a hung one leaves you finished with no report and stalls the run (`BASE-14`). A command that hangs or times out is reported with the step that was running.
+- Name files by repo-relative path in notes and reports; absolute paths only in commands.
 
 ## Input / Output
 - Paths: the brief gives absolute `TEAM_BIN`, `TEAM_STATE`, `TEAM_WS`, `TEAM_TOOLS`; team files go only there, never elsewhere in the repo (`ai-dev-team:dev-team` → `references/team-paths.md` §5).

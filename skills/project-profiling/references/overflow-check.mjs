@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Layout overflow check and screenshot sweep for the ai-dev-team rules COMPACT-1 (no horizontal
 // page scroll), COMPACT-2 (nothing sticks out of the viewport, no text clipped without an
-// ellipsis), COMPACT-7 (horizontal scrollers draw no scrollbar on phones) and the COST sweep
+// ellipsis), COMPACT-7 (horizontal scrollers draw no scrollbar on phones), COMPACT-9 (touch targets on
+// phones, with --touch) and the COST sweep
 // (every width x every theme in one browser launch, one contact sheet per url).
 //
 // Usage: node $TEAM_BIN/overflow-check.mjs [options] <url> [<url>...]
@@ -11,6 +12,9 @@
 //                      switch theme by attribute or class instead of prefers-color-scheme
 //   --scale <n>        also run phone widths (< 768) with the root font size multiplied by n (default 1.3; 1 disables)
 //   --allow <selector> ignore elements matching this CSS selector and their descendants (repeatable)
+//   --touch <px>       on phone widths, report controls whose hit area is smaller than px x px (44 for the
+//                      web, 48 for Android-sized app mockups); the hit area is probed with elementFromPoint, so
+//                      padding and ::before/::after extensions of the control count
 //   --shots <dir>      save a full-page screenshot per url / width / theme / scale, and write
 //                      <dir>/build-id.txt from `rule-checks.sh build-id` beside this script
 //   --sheet            with --shots: also write <dir>/<url>-sheet.png, every width x theme of that url on one image
@@ -47,7 +51,10 @@ function viewportFor(width) {
 }
 
 // Runs inside the page. Must stay self-contained: it is serialized by page.evaluate.
-export function findOverflow(allow = []) {
+// Takes the --allow selectors, or { allow, touch } to add the touch-target probe.
+export function findOverflow(arg = []) {
+  const allow = Array.isArray(arg) ? arg : (arg.allow || [])
+  const touch = Array.isArray(arg) ? 0 : (arg.touch || 0)
   // The layout viewport width: on phones window.innerWidth grows when content is too wide
   // (the page zooms out to fit), so it cannot be used to detect the overflow that caused it.
   const vw = document.documentElement.clientWidth
@@ -144,6 +151,32 @@ export function findOverflow(allow = []) {
       offenders.push({ rule: 'COMPACT-2', kind: 'clipped-vertically', el: describe(el) })
     }
   }
+  if (touch > 0) {
+    // A control passes when points touch/2 - 1 px left, right, above and below its centre still hit it
+    // (or one of its descendants): the hit area, not the drawn size, is what a finger needs.
+    const controls = 'a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=link], [role=tab], [role=checkbox], [role=radio], [role=switch], [role=menuitem], [role=option]'
+    const vh = document.documentElement.clientHeight
+    const reach = touch / 2 - 1
+    for (const el of document.querySelectorAll(controls)) {
+      if (ignored(el) || el.closest('[aria-hidden=true], [inert], [disabled]')) continue
+      const rect = el.getBoundingClientRect()
+      if (rect.width < 1 || rect.height < 1) continue
+      const cx = rect.left + rect.width / 2
+      const cy = rect.top + rect.height / 2
+      // Only controls fully on screen can be probed; the sweep scrolls by taking full-page shots, not by probing.
+      if (cx - reach < 0 || cx + reach > vw || cy - reach < 0 || cy + reach > vh) continue
+      // Inline links inside running text are exempt (WCAG 2.5.8 inline exception).
+      if (el.tagName === 'A' && getComputedStyle(el).display === 'inline' && el.parentElement
+        && [...el.parentElement.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue
+      const hits = (x, y) => { const at = document.elementFromPoint(x, y); return Boolean(at) && (at === el || el.contains(at)) }
+      if (!hits(cx, cy)) continue
+      const wide = hits(cx - reach, cy) && hits(cx + reach, cy)
+      const tall = hits(cx, cy - reach) && hits(cx, cy + reach)
+      if (!wide || !tall) {
+        offenders.push({ rule: 'COMPACT-9', kind: `touch-target-under-${touch}px`, el: `${describe(el)} (${Math.round(rect.width)}x${Math.round(rect.height)} drawn)` })
+      }
+    }
+  }
   const pageScroll = document.documentElement.scrollWidth > vw
   return { pageScroll, scrollWidth: document.documentElement.scrollWidth, viewport: vw, offenders }
 }
@@ -151,7 +184,7 @@ export function findOverflow(allow = []) {
 function parseArgs(argv) {
   const options = {
     widths: [360, 390], themes: ['light'], themeSet: null, scale: 1.3, allow: [],
-    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false,
+    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false, touch: 0,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -161,6 +194,7 @@ function parseArgs(argv) {
     else if (arg === '--sheet') options.sheet = true
     else if (arg === '--scale') options.scale = Number(argv[++i])
     else if (arg === '--allow') options.allow.push(argv[++i])
+    else if (arg === '--touch') options.touch = Number(argv[++i])
     else if (arg === '--shots') options.shots = argv[++i]
     else if (arg === '--storage') options.storage = argv[++i]
     else if (arg === '--init') options.init.push(argv[++i])
@@ -172,7 +206,7 @@ function parseArgs(argv) {
   }
   const valid = options.urls.length && options.scale > 0 && options.themes.length
     && options.widths.length && options.widths.every((w) => Number.isInteger(w) && w > 0)
-    && Number.isFinite(options.wait) && options.wait >= 0 && (options.ready === null || Boolean(options.ready))
+    && Number.isFinite(options.wait) && options.wait >= 0 && Number.isFinite(options.touch) && options.touch >= 0 && (options.ready === null || Boolean(options.ready))
     && (!options.sheet || options.shots)
   return valid ? options : null
 }
@@ -198,12 +232,26 @@ function loadChromium() {
 }
 
 // File-name stem per url from path + query + hash, so hash routes and query strings do not collide.
+// file: URLs drop the directory they share (and the home directory), so names carry no machine path.
 function shotNames(urls) {
   const names = new Map()
   const used = new Set()
+  const files = urls.map((url) => new URL(url)).filter((u) => u.protocol === 'file:').map((u) => u.pathname.split('/').slice(0, -1))
+  let common = files[0] || []
+  for (const dirs of files) {
+    let i = 0
+    while (i < common.length && i < dirs.length && common[i] === dirs[i]) i++
+    common = common.slice(0, i)
+  }
   urls.forEach((url, index) => {
     const parsed = new URL(url)
-    let name = `${parsed.pathname}${parsed.search}${parsed.hash}`.replace(/\W+/g, '_').replace(/^_+|_+$/g, '').slice(0, 120)
+    let pathname = parsed.pathname
+    if (parsed.protocol === 'file:') {
+      const parts = pathname.split('/')
+      const keep = files.length > 1 ? parts.slice(common.length) : parts.slice(-2)
+      pathname = keep.join('/')
+    }
+    let name = `${pathname}${parsed.search}${parsed.hash}`.replace(/\W+/g, '_').replace(/^_+|_+$/g, '').slice(0, 120)
     if (!name || used.has(name)) name = `${name ? `${name}-` : 'url'}${index + 1}`
     used.add(name)
     names.set(url, name)
@@ -226,7 +274,7 @@ function writeBuildId(dir) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options) {
-    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
+    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--touch px] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
     process.exit(64)
   }
   const chromium = loadChromium()
@@ -276,7 +324,7 @@ async function main() {
             // Approximates the OS font scale for rem-based layouts.
             await page.evaluate((s) => { document.documentElement.style.fontSize = s === 1 ? '' : `${16 * s}px` }, scale)
             await page.waitForTimeout(options.wait)
-            const result = await page.evaluate(findOverflow, options.allow)
+            const result = await page.evaluate(findOverflow, { allow: options.allow, touch: phone ? options.touch : 0 })
             const label = `${url} @ ${width}px ${theme} scale ${scale}`
             const cell = `${width} ${theme}${scale === 1 ? '' : ` x${scale}`}`
             if (options.shots) {

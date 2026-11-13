@@ -25,7 +25,7 @@ Paths are relative to the plugin's `skills/` directory. "Verified by" names the 
 
 | Pack | Applies when the task… | Must read | Numbered checks | Verified by |
 |---|---|---|---|---|
-| `BASE` | always (implied, not written in the `Rules` column) | this file §3 | §3 | reviewer; `BASE-3`, `BASE-4`, `BASE-5`, `BASE-10`, `BASE-11` self-attested |
+| `BASE` | always (implied, not written in the `Rules` column) | this file §3 | §3 | reviewer; `BASE-3`, `BASE-4`, `BASE-5`, `BASE-10`, `BASE-11`, `BASE-13`, `BASE-14` self-attested |
 | `COST` | always (implied, not written) — how tests, builds and other heavy commands are run | `dev-team/references/resource-budget.md` | §7 | self-attested; qc for its own runs |
 | `SWEEP` | builds or changes a web-rendered screen (web app, PWA, Capacitor WebView) — not Flutter or native, which qc covers with widget/golden tests | `dev-team/references/resource-budget.md` | `resource-budget.md` §8 | qc, reviewer (design QA) |
 | `TOOL` | scaffolds a new project, app or package | `technical-design/SKILL.md` → Latest-stable toolchain | this file §4 | reviewer |
@@ -64,6 +64,8 @@ A check that names a tool or environment the task cannot use (a device, Xcode, a
 10. **Test scope** — per task and per fix round only the related tests of the changed files and the mapped guards ran (no whole-suite or all-guards runs); failures outside the task are reported as `not mine`, not chased with reruns.
 11. **Shared tree** — no `git stash`, `checkout`, `restore`, `reset`, branch switch, or moving / deleting tracked files on the working tree other agents share; to show a test failing without the change, copy the file to `$TEAM_WS/` and copy it back, or write the test before the code.
 12. **Other repositories** — nothing was written outside this repository unless the brief names that repository and its files and states the user approved it.
+13. **Untracked files and shared environments** — no untracked file or directory was deleted without listing it and getting the user's yes (it cannot be restored from git); before installing, uninstalling or resetting anything on an environment that mounts the repository (a container with the source bind-mounted, a CMS that deletes extension folders on uninstall), `git status` was taken, and taken again after — a tracked file that changed or vanished is restored and reported. Local secrets files (`.env`) change only by named keys, after a backup, and the notes list the keys changed.
+14. **No waiting on yourself** — tests and builds ran in the foreground with a timeout (`run-heavy.sh` applies one by default); the agent never ended its turn to wait for its own background command. A command that hangs or times out is reported as hung with the step that was running, not left running.
 
 ## 4. `TOOL` — greenfield toolchain
 1. Installed versions equal the design's `## Toolchain` table; anything not in the table was looked up at install time, not recalled.
@@ -120,7 +122,8 @@ Each verifier adds this table to its verdict, covering the rule IDs of the packs
 - **Verifiers follow the packs**: every task gets a reviewer; qc too unless it is on a light-tier route. A pack verified only by qc on a light-tier task means that task is not small — give it qc.
 - **Verdict gate**: a verdict without a `## Rule check` table for the packs that role verifies → ask that agent for it before accepting the verdict.
 - **Coverage**: a task is `done` when every assigned rule ID is `pass` or `n-a` from the developer **and**, except self-attested rules, `pass` from at least one verifier (an accepted `n-a` needs a verifier that does not contradict it). Rule IDs every verifier marked `n-o` are listed as `unverified` in the task board notes and in the Phase 6 report.
-- **Ledger**: append every verifier `fail` to `$TEAM_WS/rule-violations.md` (`T{id} | rule ID | agent that found it | fixed in round n`). A rule that fails in two tasks goes into the brief of every later task as a one-line warning, and into the Phase 6 report.
+- **Ledger**: append every verifier `fail` to `$TEAM_WS/rule-violations.md` — a table with the header `| Task | Rule | Found by | Fixed in round |`, one row per fail; the Rule cell is always one rule ID (`COMPACT-5`, `AC-7`, `SEC-12`), never a description — a defect that maps to no rule goes to the notes, not the ledger, and a rule pack that should have caught it is a candidate for a new check.
+- **Recurring defect classes**: the same kind of defect found in two or more tasks without a rule ID (a held write lost when the app goes to the background, a failed reload that leaves a silent stale screen) gets a one-line warning in every later brief, like a rule that failed twice, and is listed in the Phase 6 report as a proposed new check for the pack it belongs to. A rule that fails in two tasks goes into the brief of every later task as a one-line warning, and into the Phase 6 report.
 
 ## 9. Automated checks
 Rules a script can decide are decided by the script, not by reading. The scripts live in the plugin at `$TEAM_BIN` (the brief gives the absolute path) and run with the project root as the working directory. Each prints `<RULE-ID> ok`, `<RULE-ID> n-a: <reason>` or one line per violation, and exits 1 on violations.
@@ -131,9 +134,11 @@ Rules a script can decide are decided by the script, not by reading. The scripts
 | `LIST-4` (list state in web storage) | `$TEAM_BIN/rule-checks.sh list-storage` — hits are candidates; confirm each | developer, reviewer |
 | `BASE-7` | `$TEAM_BIN/rule-checks.sh commits [base]` — only when commits were made | developer, reviewer |
 | `TOOL-2` | `$TEAM_BIN/rule-checks.sh prerelease` — hits are candidates; confirm each | developer, reviewer |
-| `COMPACT-1`, `COMPACT-2`, `COMPACT-7`, `SWEEP-1` | `$TEAM_BIN/run-heavy.sh node $TEAM_BIN/overflow-check.mjs --widths <ui_widths> --themes <ui_themes> --shots $TEAM_WS/qa-artifacts/T{id} --sheet [--init <ui_seed>] <url>...` on the screens and states the task changed, loaded with worst-case content (`resource-budget.md` §3) | developer (when the app can run), qc |
+| `COMPACT-1`, `COMPACT-2`, `COMPACT-7`, `COMPACT-9`, `SWEEP-1` | `$TEAM_BIN/run-heavy.sh node $TEAM_BIN/overflow-check.mjs --widths <ui_widths> --themes <ui_themes> --touch 44 --shots $TEAM_WS/qa-artifacts/T{id} --sheet [--init <ui_seed>] <url>...` on the screens and states the task changed, loaded with worst-case content (`resource-budget.md` §3) | developer (when the app can run), qc |
 | `COMPACT-6` (Flutter) | `$TEAM_BIN/rule-checks.sh flutter-overflow <saved flutter test output>` | developer, qc |
 | `REAL-2`, `REAL-4` | `$TEAM_BIN/rule-checks.sh ai-look` — hits are candidates (seed data in fixtures, a brief that asks for gradient text); confirm each | developer, reviewer |
 | `SWEEP-3` (build id) | `$TEAM_BIN/rule-checks.sh build-id` — same tree, same id | developer, qc |
+| `BASE-7` (team media) | `$TEAM_BIN/rule-checks.sh staged-media` before a commit with team files; `tracked-media` (`--fix` untracks) in Phase 0 | leader |
+| — (environment) | `$TEAM_BIN/rule-checks.sh env-drift` — keys missing from `.env` against the example file; names only, never values | leader (Phase 0), developer of an `env` task |
 
 `$TEAM_BIN/rule-checks.sh all [base]` runs every check except `flutter-overflow`. A script that cannot run here (exit 2 from `overflow-check.mjs`: Playwright not installed) leaves the rule to the manual check in its reference file; say so in the evidence.

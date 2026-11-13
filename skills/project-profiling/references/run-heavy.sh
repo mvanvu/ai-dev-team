@@ -7,12 +7,20 @@
 # Env:   AI_DEV_TEAM_LOCK       lock path (default: $TMPDIR or /tmp + ai-dev-team-heavy.lock; machine-wide;
 #                               without flock the lock is the directory <lock>.d holding the owner's pid)
 #        AI_DEV_TEAM_LOCK_WAIT  max seconds to wait for the lock (default 1800)
-# Exit:  the command's exit code, or 75 when the lock wait timed out.
+#        AI_DEV_TEAM_TIMEOUT    max seconds the command may run once it has the lock (default 1800; 0 = no limit).
+#                               A hung test runner or build is killed instead of holding the lock and its
+#                               caller forever; needs `timeout` (coreutils), else the command runs unlimited.
+# Exit:  the command's exit code, 75 when the lock wait timed out, 124 when the command ran past the timeout.
 # While waiting it prints the holder's command and directory (from <lock>.owner) once to stderr.
 set -u
 
 lock="${AI_DEV_TEAM_LOCK:-${TMPDIR:-/tmp}/ai-dev-team-heavy.lock}"
 wait_s="${AI_DEV_TEAM_LOCK_WAIT:-1800}"
+run_s="${AI_DEV_TEAM_TIMEOUT:-1800}"
+limit=""
+if [ "$run_s" != "0" ] && command -v timeout >/dev/null 2>&1; then
+  limit="timeout -k 30 $run_s"
+fi
 
 if [ "$#" -eq 0 ]; then
   echo "usage: $0 <command> [args...]" >&2
@@ -25,7 +33,12 @@ say_waiting() {
 }
 
 low_priority() {
-  if command -v nice >/dev/null 2>&1; then nice -n 10 "$@"; else "$@"; fi
+  if command -v nice >/dev/null 2>&1; then $limit nice -n 10 "$@"; else $limit "$@"; fi
+}
+
+timed_out() {
+  echo "run-heavy: timed out after ${run_s}s and was stopped: $*" >&2
+  echo "run-heavy: report it as hung (which test or step was running), do not rerun it unchanged" >&2
 }
 
 if command -v flock >/dev/null 2>&1; then
@@ -33,9 +46,12 @@ if command -v flock >/dev/null 2>&1; then
   # (Gradle, Flutter, test containers) cannot hold the lock after it exits.
   flock -n "$lock" true 2>/dev/null || say_waiting
   # The child records itself as the holder once it has the lock, then becomes the command.
-  exec flock -o -w "$wait_s" -E 75 "$lock" sh -c \
-    'printf "%s  [%s, since %s]\n" "$*" "$PWD" "$(date +%H:%M:%S)" > "$0" 2>/dev/null; exec nice -n 10 "$@"' \
-    "$owner_file" "$@"
+  flock -o -w "$wait_s" -E 75 "$lock" sh -c \
+    'owner="$1"; shift; printf "%s  [%s, since %s]\n" "$*" "$PWD" "$(date +%H:%M:%S)" > "$owner" 2>/dev/null; exec $0 nice -n 10 "$@"' \
+    "${limit:-env}" "$owner_file" "$@"
+  rc=$?
+  [ "$rc" -eq 124 ] && [ -n "$limit" ] && timed_out "$@"
+  exit "$rc"
 fi
 
 # Fallback for systems without flock (macOS): an atomic mkdir lock. The owner pid is written
@@ -96,3 +112,6 @@ trap release EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 low_priority "$@"
+rc=$?
+[ "$rc" -eq 124 ] && [ -n "$limit" ] && timed_out "$@"
+exit "$rc"
