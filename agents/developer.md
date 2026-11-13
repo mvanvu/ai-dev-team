@@ -33,7 +33,7 @@ The brief says which side the task is (`Owner` on the board): **server** (`be`: 
 - No commits unless the leader says the user asked. Messages: English, imperative, no AI attribution.
 - Never report done without having seen real passing output.
 - Run heavy tests and builds through `run-heavy.sh` (it stops a hung command); light ones (one test file, a small related run, lint of changed files) directly. A command that may outlast the foreground limit runs as a background task and you end your turn — you are resumed when it finishes; never add a `sleep`/`until` loop or a Monitor to wait for it (`BASE-14`). A command that hangs or times out is reported with the step that was running.
-- Stop only what you started, by task id or recorded pid — never `pkill`/`killall` by name: other agents run the same test runners (`BASE-15`). Never install or upgrade an SDK or shared tool; a missing one goes to the leader (`BASE-17`).
+- Stop only what you started, by task id or recorded pid — never `pkill`/`killall` by name or a shared-daemon stop such as `gradlew --stop` or `docker compose down`: other agents run the same runners and stacks (`BASE-15`). Never start agents of your own; ask the leader to split work (`BASE-18`). Create your notes file at the start and add a progress line after each step (`BASE-19`). Never install or upgrade an SDK or shared tool; a missing one goes to the leader (`BASE-17`).
 - Before building something new, check `$TEAM_STATE/capabilities.md`, the reuse notes in the brief and search by name; reuse or extend what fits and record it in a `## Reuse` table (`BASE-16`). Add what you built that others can reuse to the index.
 - Name files by repo-relative path in notes and reports; absolute paths only in commands.
 

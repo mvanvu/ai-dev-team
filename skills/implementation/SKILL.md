@@ -11,6 +11,10 @@ description: "How the developer implements a task: read plan/UI spec/threat mode
 3. Read the rule list in the leader's brief (one line per rule ID; index in `ai-dev-team:dev-team` → `references/rule-packs.md` §2) — these are the rules you will report on, one by one. Open a pack's reference file only for the section behind a rule this task exercises.
 4. Read the code you will touch and its existing tests. Match local conventions from the project profile.
 5. **Reuse first** (`BASE-16`): before adding a feature, component, service, helper, endpoint, script or fixture, check `$TEAM_STATE/capabilities.md`, the reuse notes in the brief, then search by name (a bounded `grep`, not a crawl of the repo). Use or extend what fits; build new only when nothing does, and say why in a `## Reuse` table of the notes. Add what you build that others can reuse to `capabilities.md`.
+6. **Notes from the start** (`BASE-19`): create `$TEAM_WS/04_dev_T{id}.md` before the first change with the task line, then add one progress line after each step (read, red test, code, related tests, sweep). A replacement agent continues from it.
+7. **Fakes cover the case being fixed**: a fake of another system (CRM, identity, payments) must be able to return the edge case the task handles (a masked field, a 429, a 500, an empty block); add that mode to the fake rather than leaving the case to manual testing.
+8. **Removing things** (`BASE-20`): search every reference before deleting — dynamically built names (`LABEL_` + suffix, interpolated keys), config, templates, other apps in the repo — and keep what is still used.
+9. **No sub-agents** (`BASE-18`): never start agents yourself; ask the leader to split work.
 
 Work in few turns (`COST-8`, `ai-dev-team:dev-team` → `references/resource-budget.md` §2): batch reads, write new files whole, make all edits to a file in one pass, run tests after a group of changes.
 
@@ -19,7 +23,7 @@ Work in few turns (`COST-8`, `ai-dev-team:dev-team` → `references/resource-bud
 2. **Green**: write the minimal code to pass.
 3. **Refactor**: clean up while green.
 4. Repeat until the task's done-criteria are covered, then run once: the profile's `test (related)` command on the files you changed, the guard tests the profile maps to the areas you touched, lint / type-check, and the build if the task changes built output. That run is the task's evidence.
-5. Never run the whole test suite or every guard suite per task, unless the leader asks or the change touches shared infrastructure; the full suite runs once at feature sign-off.
+5. Never run the whole test suite, the whole e2e target or every guard suite per task (e2e: the profile's `test (e2e, one spec)` command on the specs the task adds or changes), unless the leader asks or the change touches shared infrastructure; the full suite runs once at feature sign-off.
 6. A test you did not touch, for code you did not change, fails: rerun that single file once. Still failing → write it in the notes as `not mine: <file> — <first error line>` and report it; do not rerun the suite to investigate, do not edit other tasks' files to make it pass. Concurrent edits by another agent and stale built output are the usual cause, and the leader resolves them.
 
 ## Running commands

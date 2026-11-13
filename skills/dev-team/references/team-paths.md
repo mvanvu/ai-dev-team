@@ -33,6 +33,7 @@ for p in '**/qa-artifacts/' '**/sheets/' '**/*.png' '**/*.jpg' '**/*.jpeg' '**/*
 done
 ( cd "$root" && "${TEAM_BIN:?resolve TEAM_BIN first}/rule-checks.sh" tracked-media --fix )  # images an older ignore file let into the index
 ( cd "$root" && "$TEAM_BIN/rule-checks.sh" env-drift )  # keys .env lacks against .env.example (names only)
+( cd "$root" && "$TEAM_BIN/rule-checks.sh" stray-team-files )  # .superpowers/, _workspace*/, mockup code in the source tree: move them (§4)
 echo "TEAM_STATE=$TEAM_STATE TEAM_WS=$TEAM_WS TEAM_TOOLS=$TEAM_TOOLS"
 ```
 
@@ -53,7 +54,7 @@ Before anything else, when team files of an older version exist:
 1. `~/.local/state/ai-dev-team/projects/<slug>/` (state kept outside the repo; `<slug>` is the repo root path with every character other than a letter or digit replaced by `-`) → `.ai-dev-team/`: profile, `workspace/`, `workspace_*/`, `seed/`, `flows/` (keep the newer file when both exist). Leave the old folder in place and tell the user it can be deleted.
 2. `.claude/team/project-profile.md` → `.ai-dev-team/project-profile.md`; delete `.claude/team/run-heavy.sh`, `rule-checks.sh`, `overflow-check.mjs`; remove `.claude/team/` when empty.
 3. `_workspace/` → `$TEAM_WS/` (or `$TEAM_STATE/workspace_<timestamp>/` when `$TEAM_WS` is not empty); each `_workspace_*/` → `$TEAM_STATE/`.
-4. `.superpowers/` (mockups, brainstorm and plan files written by `superpowers` during a team run) → `$TEAM_WS/mockups/` and `$TEAM_WS/`; ask first when the user keeps their own files there.
+4. `.superpowers/` (mockups, brainstorm and plan files written by `superpowers` during a team run) → `$TEAM_WS/mockups/` and `$TEAM_WS/`; ask first when the user keeps their own files there. This is checked on every run (`rule-checks.sh stray-team-files`), not only after an upgrade: skills and agents keep writing there, and tests that read a mockup must read the copy in `mockup_dir`, never `.superpowers/`.
 5. Profile commands that hold `.claude/team/<script>` or a versioned plugin path are rewritten to `$TEAM_BIN/<script>`. Lines the team added to `.git/info/exclude` (`_workspace/`, `_workspace_*/`, `.claude/team/`) are removed.
 6. Machine fields in the committed profile (`playwright_dir`, `heavy_workers`, an app URL with a port, local tool paths) move to `$TEAM_STATE/local.md`; a field written twice keeps the newer value, once, in front matter. Absolute paths of a machine in committed team files (`/home/<user>/<repo>/…`) are rewritten once to repo-relative paths — one `sed` over `.ai-dev-team/`, not a hand edit per file.
 
