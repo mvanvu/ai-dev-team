@@ -9,8 +9,14 @@
 //   apk <file.apk>     serve one APK for download; the phone installs it (allow "install unknown apps")
 //   android-pair       pair the phone with adb through Android's "Pair device with QR code" (Android 11+,
 //                      Developer options → Wireless debugging), then connect; prints the device serial for
-//                      `flutter run -d <serial>` or `npx cap run android --target <serial>`
-// Options: --host <ip>      LAN address to use (default: the first private IPv4 address that is not a container bridge)
+//                      `flutter run -d <serial>` or `npx cap run android --target <serial>`. QR pairing needs
+//                      mDNS between phone and machine, which some networks block: after 90 s it stops and
+//                      prints the pairing-code fallback below.
+//   android-code <pair ip:port> <6-digit code> [<connect ip:port>]
+//                      fallback: the user taps "Pair device with pairing code" and reads out the IP:port and
+//                      code of that dialog, and the IP:port on the Wireless debugging screen itself (connect)
+// Options: --host <ip>      LAN address to use (default: a Wi-Fi interface first, since phones join over Wi-Fi;
+//                           every other LAN address is listed so the user can say which network the phone is on)
 //          --port <n>       port for web/apk (default: a free random port)
 //          --minutes <n>    web/apk server stops by itself after n minutes (default 30)
 //          --svg <file>     also write the QR code as SVG (open it when the terminal cannot show the code)
@@ -47,19 +53,33 @@ const target = args[0];
 
 function usage(msg) {
   if (msg) console.error(msg);
-  console.error('usage: node device-preview.mjs web <dir> | url <url> | apk <file.apk> | android-pair [--host ip] [--port n] [--minutes n] [--svg file]');
+  console.error('usage: node device-preview.mjs web <dir> | url <url> | apk <file.apk> | android-pair | android-code <pair ip:port> <code> [<connect ip:port>] [--host ip] [--port n] [--minutes n] [--svg file] [--light-bg]');
   process.exit(64);
 }
 
-function lanAddress() {
-  const skip = /^(docker|br-|veth|virbr|lo|cni|flannel|tun|tap|wg)/;
+function lanAddresses() {
+  const skip = /^(docker|br-|veth|virbr|lo|cni|flannel|tun|tap|wg|tailscale|zt)/;
+  const priv = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/;
   const found = [];
   for (const [name, list] of Object.entries(networkInterfaces())) {
     if (skip.test(name)) continue;
-    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) found.push(a.address);
+    for (const a of list || []) {
+      if (a.family !== 'IPv4' || a.internal) continue;
+      // Phones join over Wi-Fi, so wireless interfaces (wl*, wlan*, en0 on macOS laptops) come first.
+      const rank = (/^(wl|wlan|wifi)/.test(name) ? 0 : 1) + (priv.test(a.address) ? 0 : 2);
+      found.push({ name, address: a.address, rank });
+    }
   }
-  const priv = found.find((a) => /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a));
-  return priv || found[0] || '';
+  return found.sort((a, b) => a.rank - b.rank);
+}
+
+function lanAddress() {
+  const all = lanAddresses();
+  if (all.length > 1) {
+    console.log(`LAN addresses: ${all.map((a) => `${a.address} (${a.name})`).join(', ')} — using ${all[0].address}.`);
+    console.log('If the phone is on another of these networks, run again with --host <that address>.');
+  }
+  return all[0] ? all[0].address : '';
 }
 
 function showQr(text, caption) {
@@ -147,13 +167,38 @@ const ADB = (() => {
 
 function adb(...a) { return execFileSync(ADB, a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
 
+function needAdb() {
+  try { adb('version'); } catch { console.error('device-preview: adb not found on PATH, $ANDROID_HOME, $ANDROID_SDK_ROOT or ~/Android/Sdk (install Android platform-tools)'); process.exit(1); }
+}
+
+function printRun(serial) {
+  console.log(`\nadb: ${ADB}`);
+  console.log(`Device serial: ${serial}\nRun the app on it: flutter run -d ${serial}   |   npx cap run android --target ${serial}`);
+  console.log('A dev server or demo the app calls must be reachable at this machine\'s address on the phone\'s network.');
+  console.log(`Disconnect when done: adb disconnect ${serial}`);
+}
+
+const PAIR_CODE_HELP = `Pairing by QR did not complete (mDNS between phone and machine may be blocked on this network).
+Fallback: on the phone, Wireless debugging → "Pair device with pairing code". Ask the user for the IP:port and the
+6-digit code in that dialog, and the IP:port shown on the Wireless debugging screen itself, then run:
+  node device-preview.mjs android-code <pair ip:port> <code> <connect ip:port>
+The pairing port is open only while that dialog is showing.`;
+
+function androidCode(pairAddr, code, connectAddr) {
+  if (!pairAddr || !code) usage('device-preview android-code: give <pair ip:port> <6-digit code> [<connect ip:port>]');
+  needAdb();
+  console.log(adb('pair', pairAddr, code).trim());
+  if (connectAddr) console.log(adb('connect', connectAddr).trim());
+  printRun(connectAddr || pairAddr.split(':')[0]);
+}
+
 async function androidPair() {
-  try { adb('version'); } catch { console.error('device-preview android-pair: adb not found on PATH, $ANDROID_HOME, $ANDROID_SDK_ROOT or ~/Android/Sdk (install Android platform-tools)'); process.exit(1); }
+  needAdb();
   const name = `studio-${randomBytes(4).toString('hex')}`;
   const password = String(randomInt(100000, 999999));
   showQr(`WIFI:T:ADB;S:${name};P:${password};;`,
     'On the phone: Settings → Developer options → Wireless debugging → Pair device with QR code, then scan:');
-  const deadline = Date.now() + 3 * 60 * 1000;
+  const deadline = Date.now() + 90 * 1000;
   const find = (type, pick) => {
     const out = adb('mdns', 'services');
     const line = out.split('\n').find((l) => l.includes(type) && pick(l));
@@ -165,7 +210,7 @@ async function androidPair() {
     pairAddr = find('_adb-tls-pairing._tcp', (l) => l.includes(name));
     if (!pairAddr) await new Promise((r) => setTimeout(r, 1500));
   }
-  if (!pairAddr) { console.error('device-preview: the phone did not show up for pairing within 3 min (same Wi-Fi? QR scanned?)'); process.exit(1); }
+  if (!pairAddr) { console.error(PAIR_CODE_HELP); process.exit(1); }
   console.log(adb('pair', pairAddr, password).trim());
   const ip = pairAddr.split(':')[0];
   let connectAddr = '';
@@ -174,14 +219,12 @@ async function androidPair() {
     if (!connectAddr) await new Promise((r) => setTimeout(r, 1500));
   }
   if (connectAddr) console.log(adb('connect', connectAddr).trim());
-  const serial = connectAddr || ip;
-  console.log(`\nadb: ${ADB}`);
-  console.log(`Device serial: ${serial}\nRun the app on it: flutter run -d ${serial}   |   npx cap run android --target ${serial}`);
-  console.log(`Disconnect when done: adb disconnect ${serial}`);
+  printRun(connectAddr || ip);
 }
 
 if (mode === 'web') webMode(target);
 else if (mode === 'apk') apkMode(target);
 else if (mode === 'url') urlMode(target);
 else if (mode === 'android-pair') await androidPair();
+else if (mode === 'android-code') androidCode(args[0], args[1], args[2]);
 else usage();
