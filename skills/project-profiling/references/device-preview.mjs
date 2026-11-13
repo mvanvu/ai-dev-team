@@ -175,6 +175,7 @@ function printRun(serial) {
   console.log(`\nadb: ${ADB}`);
   console.log(`Device serial: ${serial}\nRun the app on it: flutter run -d ${serial}   |   npx cap run android --target ${serial}`);
   console.log('A dev server or demo the app calls must be reachable at this machine\'s address on the phone\'s network.');
+  console.log('Some brands (vivo, Xiaomi, OPPO, realme) need "Install via USB" in Developer options, and the phone asks to allow each install.');
   console.log(`Disconnect when done: adb disconnect ${serial}`);
 }
 
