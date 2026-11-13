@@ -9,7 +9,7 @@ The plan exists so the developer never has to make an architectural decision mid
 
 ## Procedure
 1. Read the spec, project profile and the code in the affected area.
-2. List affected components and new components. Prefer extending existing ones.
+2. List affected components and new components. Prefer extending existing ones: check `$TEAM_STATE/capabilities.md` and search by name before planning anything new, and write per task what it reuses (path) or why nothing fits (`BASE-16`).
 3. Define the data model changes (fields, types, constraints, migrations) and **contracts** between modules: endpoint/function signature, request and response shapes with types and nullability, error codes.
 4. Record decisions: for each non-obvious choice, the options considered, the choice and why.
 5. Risks: what can break (migrations, performance, backward compatibility) and mitigation.
@@ -18,6 +18,7 @@ The plan exists so the developer never has to make an architectural decision mid
 6b. CRUD entities: decide per entity whether the lifecycle of `references/record-lifecycle.md` applies (active flag, trash/restore/purge, status filter, server-returned permission keys, bulk actions with single-row rules) — by default yes for user-managed master data, no for child rows, join tables, settings, logs and messages. When the request did not say, it is an open question for the user with the default as the proposal; never add trash, purge or permission endpoints the user did not agree to.
 6c. Query shape: for every list, detail-with-children, export and bulk contract, name the relations and aggregates the response includes so they can be loaded in a fixed number of queries, and give clients a batch form (`ids`) instead of per-row requests (`ai-dev-team:code-review-checklist` → `references/query-performance.md`).
 6d. Rule packs: for every task, list the rule packs that apply in the task board's `Rules` column, using the "Applies when" table in `ai-dev-team:dev-team` → `references/rule-packs.md` §2 and §5. Assign by what the task touches, not only by its tags; when unsure, assign the pack.
+6e. Integration points: list the files several tasks would each change by a line or two — the app entry that registers overrides or providers, the router, a DI module, a barrel export, the nav menu, `AndroidManifest.xml` / `Info.plist`. Either plan one small setup task that adds every task's hook first, or note that the leader adds those registrations after each task; the tasks then list only their own files and can run in parallel (`ai-dev-team:dev-team` → Phase 3 step 3).
 7. When the UI spec / threat model exist, reconcile them: add UI tasks per screen/component and the `SEC-n` requirements to the relevant tasks. A contradiction between spec, UI spec and threat model goes to the user, not into a guess.
 
 ## Greenfield

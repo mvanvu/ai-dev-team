@@ -28,7 +28,7 @@ root=${common:+$(dirname "$common")}; root=${root:-$(pwd)}
 TEAM_STATE="$root/.ai-dev-team"; TEAM_WS="$TEAM_STATE/workspace"
 TEAM_TOOLS="${XDG_STATE_HOME:-$HOME/.local/state}/ai-dev-team/qa-tools"
 mkdir -p "$TEAM_WS"
-for p in '**/qa-artifacts/' '**/sheets/' '**/*.png' '**/*.jpg' '**/*.jpeg' '**/*.webp' '**/*.gif' '**/*.mp4' '**/*.webm' '/local.md'; do
+for p in '**/qa-artifacts/' '**/sheets/' '**/*.png' '**/*.jpg' '**/*.jpeg' '**/*.webp' '**/*.gif' '**/*.mp4' '**/*.webm' '/local.md' '**/.task-base/'; do
   grep -qxF "$p" "$TEAM_STATE/.gitignore" 2>/dev/null || echo "$p" >> "$TEAM_STATE/.gitignore"
 done
 ( cd "$root" && "${TEAM_BIN:?resolve TEAM_BIN first}/rule-checks.sh" tracked-media --fix )  # images an older ignore file let into the index

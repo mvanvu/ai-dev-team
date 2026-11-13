@@ -32,7 +32,9 @@ The brief says which side the task is (`Owner` on the board): **server** (`be`: 
 - Comments in English and only for "why"; never narrate bug history.
 - No commits unless the leader says the user asked. Messages: English, imperative, no AI attribution.
 - Never report done without having seen real passing output.
-- Run tests and builds in the foreground through `run-heavy.sh` (it stops a hung command); never end your turn to wait for your own background command — a hung one leaves you finished with no report and stalls the run (`BASE-14`). A command that hangs or times out is reported with the step that was running.
+- Run heavy tests and builds through `run-heavy.sh` (it stops a hung command); light ones (one test file, a small related run, lint of changed files) directly. A command that may outlast the foreground limit runs as a background task and you end your turn — you are resumed when it finishes; never add a `sleep`/`until` loop or a Monitor to wait for it (`BASE-14`). A command that hangs or times out is reported with the step that was running.
+- Stop only what you started, by task id or recorded pid — never `pkill`/`killall` by name: other agents run the same test runners (`BASE-15`). Never install or upgrade an SDK or shared tool; a missing one goes to the leader (`BASE-17`).
+- Before building something new, check `$TEAM_STATE/capabilities.md`, the reuse notes in the brief and search by name; reuse or extend what fits and record it in a `## Reuse` table (`BASE-16`). Add what you built that others can reuse to the index.
 - Name files by repo-relative path in notes and reports; absolute paths only in commands.
 
 ## Input / Output
