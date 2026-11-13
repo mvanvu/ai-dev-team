@@ -19,7 +19,7 @@
 
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, statSync, writeFileSync } from 'node:fs';
-import { networkInterfaces } from 'node:os';
+import { homedir, networkInterfaces } from 'node:os';
 import { extname, join, normalize, resolve, sep, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomInt } from 'node:crypto';
@@ -129,10 +129,20 @@ function urlMode(url) {
   showQr(u.toString(), 'Dev server — scan with the phone (the server must listen on all interfaces, e.g. --host 0.0.0.0):');
 }
 
-function adb(...a) { return execFileSync('adb', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
+// adb from PATH, else from the usual Android SDK locations (Android Studio does not put it on PATH).
+const ADB = (() => {
+  const sdks = [process.env.ANDROID_HOME, process.env.ANDROID_SDK_ROOT, join(homedir(), 'Android', 'Sdk'), join(homedir(), 'Library', 'Android', 'sdk')];
+  for (const sdk of sdks) {
+    const bin = sdk && join(sdk, 'platform-tools', process.platform === 'win32' ? 'adb.exe' : 'adb');
+    if (bin && existsSync(bin)) return bin;
+  }
+  return 'adb';
+})();
+
+function adb(...a) { return execFileSync(ADB, a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
 
 async function androidPair() {
-  try { adb('version'); } catch { console.error('device-preview android-pair: adb not found (Android platform-tools)'); process.exit(1); }
+  try { adb('version'); } catch { console.error('device-preview android-pair: adb not found on PATH, $ANDROID_HOME, $ANDROID_SDK_ROOT or ~/Android/Sdk (install Android platform-tools)'); process.exit(1); }
   const name = `studio-${randomBytes(4).toString('hex')}`;
   const password = String(randomInt(100000, 999999));
   showQr(`WIFI:T:ADB;S:${name};P:${password};;`,
@@ -159,7 +169,8 @@ async function androidPair() {
   }
   if (connectAddr) console.log(adb('connect', connectAddr).trim());
   const serial = connectAddr || ip;
-  console.log(`\nDevice serial: ${serial}\nRun the app on it: flutter run -d ${serial}   |   npx cap run android --target ${serial}`);
+  console.log(`\nadb: ${ADB}`);
+  console.log(`Device serial: ${serial}\nRun the app on it: flutter run -d ${serial}   |   npx cap run android --target ${serial}`);
   console.log(`Disconnect when done: adb disconnect ${serial}`);
 }
 
