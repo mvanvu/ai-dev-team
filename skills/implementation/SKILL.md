@@ -10,6 +10,7 @@ description: "How the developer implements a task: read plan/UI spec/threat mode
 2. Checking data or pages while working: the lightest tool (`ai-dev-team:dev-team` → `references/resource-budget.md` §2) — `curl`/`jq` for API data, `lightpanda fetch` for rendered DOM, a browser only for layout.
 3. Read the rule list in the leader's brief (one line per rule ID; index in `ai-dev-team:dev-team` → `references/rule-packs.md` §2) — these are the rules you will report on, one by one. Open a pack's reference file only for the section behind a rule this task exercises.
 4. Read the code you will touch and its existing tests. Match local conventions from the project profile.
+5. **Reuse first** (`BASE-16`): before adding a feature, component, service, helper, endpoint, script or fixture, check `$TEAM_STATE/capabilities.md`, the reuse notes in the brief, then search by name (a bounded `grep`, not a crawl of the repo). Use or extend what fits; build new only when nothing does, and say why in a `## Reuse` table of the notes. Add what you build that others can reuse to `capabilities.md`.
 
 Work in few turns (`COST-8`, `ai-dev-team:dev-team` → `references/resource-budget.md` §2): batch reads, write new files whole, make all edits to a file in one pass, run tests after a group of changes.
 
@@ -22,7 +23,9 @@ Work in few turns (`COST-8`, `ai-dev-team:dev-team` → `references/resource-bud
 6. A test you did not touch, for code you did not change, fails: rerun that single file once. Still failing → write it in the notes as `not mine: <file> — <first error line>` and report it; do not rerun the suite to investigate, do not edit other tasks' files to make it pass. Concurrent edits by another agent and stale built output are the usual cause, and the leader resolves them.
 
 ## Running commands
-- Heavy commands (module/related test runs, builds, e2e, native builds) run through the profile's wrapped commands — `$TEAM_BIN/run-heavy.sh <cmd>` with the worker cap. The red/green loop on a single test file may run directly.
+- Heavy commands (related runs over more than ~5 test files, builds, e2e, native builds, whole-project type-check) run through the profile's wrapped commands — `$TEAM_BIN/run-heavy.sh <cmd>` with the worker cap. The red/green loop on a single test file and small related runs run directly (`ai-dev-team:dev-team` → `references/resource-budget.md` §2). Related runs name test files, never whole test directories.
+- A command that may outlast the foreground limit: start it as a background task and end your turn; you are resumed when it finishes. No waiting loops (`BASE-14`).
+- Stop only processes you started (`BASE-15`); never install an SDK or shared tool (`BASE-17`). Scratch tests or probes that commit data (forked processes, a second connection, calls to the running app) delete what they wrote; the notes show the count before and after.
 - Foreground only: never leave watchers, dev servers, emulators or daemons running when you report.
 - Paste the trimmed output of the final test/lint/build runs into the task notes — reviewers rely on it instead of rerunning them.
 
@@ -51,6 +54,11 @@ Where a test is impractical (pure styling, config), state why in the task notes 
 - Commands run + result (trimmed output):
 - Deviations from the plan (with reason):
 - Out-of-scope issues noticed:
+
+## Reuse
+| Needed | Looked in | Result |
+|---|---|---|
+| e.g. error card with retry | capabilities.md, `grep -rn ErrorState src` | reused `src/ui/ErrorState.tsx` |
 
 ## Rule compliance
 | Rule | Status | Evidence |

@@ -43,6 +43,7 @@ Whether AI crawlers may index or train on public content is a **product decision
 - Stricter limits on expensive or sensitive endpoints: search, export, reports, file processing, AI calls, login, OTP/SMS/email sending, signup, password reset.
 - Counters live in a shared store (Redis or the gateway), not per-process memory that resets per instance.
 - Respond `429` with `Retry-After`; daily/monthly quotas for API keys and paid features.
+- **Volume, not only requests**: every endpoint that stores data per call (uploads, imports, attachments, created records, generated exports) has a limit per subject on the amount stored — bytes or items per day, a total quota per tenant or account — besides the request rate. A request limit alone still lets one token fill storage (300 requests/min × a 500 MB file limit is terabytes per hour). The rule check names the limit, or records the user's accepted risk with its date.
 - Webhooks and callbacks from third parties are verified (signature) and limited too.
 
 ## 4. Resource exhaustion

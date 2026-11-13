@@ -42,17 +42,22 @@ The team keeps its state in one repo folder, `.ai-dev-team/`, so specs, plans an
 - `.ai-dev-team/project-profile.md`: detected stack, verified commands and the resource budget, kept across runs.
 - `.ai-dev-team/workspace/`: spec, plan, UI spec, threat model, task board, task notes, QC reports and mockups of the current run; finished runs are archived beside it. Commit it with the work; screenshots, contact sheets and recordings are ignored by `.ai-dev-team/.gitignore`.
 - `~/.local/state/ai-dev-team/qa-tools/`: a Playwright install shared by all projects on this machine, used only when a project has none.
-- Scripts run straight from the installed plugin (`skills/project-profiling/references/`), so a plugin update takes effect without touching any repo: `run-heavy.sh` runs heavy commands (tests, builds, audits) one at a time at low CPU priority; `rule-checks.sh` and `overflow-check.mjs` decide the rules a machine can check.
+- Scripts run straight from the installed plugin (`skills/project-profiling/references/`), so a plugin update takes effect without touching any repo: `run-heavy.sh` runs heavy commands (tests, builds, audits) a few at a time at low CPU priority; `rule-checks.sh` and `overflow-check.mjs` decide the rules a machine can check (`rule-checks.sh task-base` / `task-diff` give each task its own diff); `device-preview.mjs` puts the app on your phone with a QR code.
 
 Projects used with an older version get their `.claude/team/`, `_workspace/` or `~/.local/state/ai-dev-team/projects/<project>/` moved into `.ai-dev-team/` on the next run.
 
 The final review phase uses the Workflow tool and runs when a feature has 4 or more tasks or anything security-related (always for review-only requests). Invoking the `dev-team` skill counts as consent; it stays small (≤ 3 reviewers + verifiers) unless you ask for a thorough review.
 
+### Research, reuse and phone preview
+- Before planning a new feature or product, the leader asks whether to research it first. On a yes, short time-boxed agents look at what the project already has and at comparable products and practices on the web, and you pick from 3–5 sourced options (core / expected / optional) before the spec questions (`skills/dev-team/references/request-research.md`).
+- The project keeps a capability index (`.ai-dev-team/capabilities.md`); developers reuse what exists before building anything new, and reviewers flag duplicates.
+- Say "QR code" (or accept the offer after a mobile task) to open the app on your phone over the local Wi-Fi: a web build or dev server in the phone's browser, Android wireless debugging paired by QR for `flutter run` / Capacitor with hot reload, or a QR to download the APK. Nothing extra is installed on the phone.
+
 ### Resource budget
 Parallel agents are cheap; the test runners and builds they start are not. The profile sets the budget, and you can edit it:
-- `max_agents` (default 4): agents running at once, including the final-review workflow; extra work queues.
+- `max_agents` (default 4): developers running at once; `max_verifiers` (default 4): reviewers, qc, research agents and the final-review workflow at once; extra work queues.
 - `heavy_workers` (default CPU threads ÷ 4, kept per machine in the git-ignored `.ai-dev-team/local.md`): worker cap written into every heavy test/build command.
-- Heavy commands go through `$TEAM_BIN/run-heavy.sh`, which lets only one run at a time on the machine (`flock`, with a `mkdir` lock fallback on macOS) under `nice`. `AI_DEV_TEAM_LOCK_WAIT` sets the maximum wait in seconds (default 1800); `AI_DEV_TEAM_TIMEOUT` stops a command that runs longer (default 1800, `0` = no limit), so a hung test runner cannot stall a run.
+- `heavy_slots` (default CPU threads ÷ 8, at least 1, per machine in `local.md`): heavy commands running at once across every project on the machine. They go through `$TEAM_BIN/run-heavy.sh` (`flock` slots, one `mkdir` lock on macOS) under `nice`; `run-heavy.sh --status` shows what holds each slot. One test file, a small related run or lint of changed files runs directly, without queuing. `AI_DEV_TEAM_LOCK_WAIT` sets the maximum wait in seconds (default 1800); `AI_DEV_TEAM_TIMEOUT` stops a command that runs longer (default 1800, `0` = no limit), so a hung test runner cannot stall a run.
 
 The reviewer reads the developer's test output instead of rerunning it, per-task QC runs in parallel with review, and the full suite runs once at sign-off. Developers run only the tests related to the files they changed (`vitest related`, mapped guards), once per task and once per fix round; tasks that share files or a built bundle never run at the same time on one working tree.
 

@@ -22,6 +22,12 @@
 #                           key names, never values
 #   build-id                not a check: prints one id of the working tree (HEAD + uncommitted changes +
 #                           untracked files), equal for every agent on the same tree; screenshots record it
+#   task-base <id>          not a check: records the tree as it is now (tracked + untracked, ignored files and
+#                           .ai-dev-team/ left out) as the start of task <id>, in .ai-dev-team/workspace/.task-base/;
+#                           uses a copy of the index, so the real index and the working tree are untouched
+#   task-diff <id> [git diff options] [-- paths]
+#                           not a check: the diff from task <id>'s start to the tree now (new untracked files
+#                           included); limit it to the task's files with `-- <paths>` when tasks run in parallel
 # Exit: 0 no violation (or the check does not apply here), 1 violations found, 64 usage error.
 # Portable to bash 3.2 (macOS): no mapfile, empty arrays expanded with ${a[@]+"${a[@]}"}.
 set -u
@@ -240,6 +246,37 @@ env_drift() {
   return 0
 }
 
+task_tree() {
+  # Writes the current tree (tracked + untracked, ignored files and .ai-dev-team/ excluded) to the object store
+  # through a copy of the index, and prints its id. The real index and the working tree are not changed.
+  local idx tmp tree
+  idx=$(git rev-parse --git-path index)
+  tmp=$(mktemp "${TMPDIR:-/tmp}/ai-dev-team-index.XXXXXX") || return 2
+  if [ -f "$idx" ]; then cp "$idx" "$tmp"; else rm -f "$tmp"; fi
+  GIT_INDEX_FILE="$tmp" git add -A -- . ':(exclude).ai-dev-team' >/dev/null 2>&1
+  tree=$(GIT_INDEX_FILE="$tmp" git write-tree)
+  rm -f "$tmp"
+  echo "$tree"
+}
+
+task_base() {
+  local id="${1:-}" dir=.ai-dev-team/workspace/.task-base tree
+  [ -n "$id" ] || { echo "usage: $0 task-base <task id>" >&2; return 64; }
+  git rev-parse --git-dir >/dev/null 2>&1 || { echo "task-base n-a: not a git repository"; return 0; }
+  mkdir -p "$dir"
+  tree=$(task_tree) || return 2
+  echo "$tree" > "$dir/$id"
+  echo "task-base $id $tree"
+}
+
+task_diff() {
+  local id="${1:-}" dir=.ai-dev-team/workspace/.task-base base
+  [ -n "$id" ] || { echo "usage: $0 task-diff <task id> [git diff options] [-- paths]" >&2; return 64; }
+  shift
+  base=$(cat "$dir/$id" 2>/dev/null) || { echo "task-diff: no base for $id; the leader records it with task-base when the task starts" >&2; return 64; }
+  git diff "$base" "$(task_tree)" ${@+"$@"}
+}
+
 case "$check" in
   arch) check_arch ${@+"$@"} ;;
   list-storage) check_list_storage ${@+"$@"} ;;
@@ -251,6 +288,8 @@ case "$check" in
   tracked-media) check_tracked_media ${@+"$@"} ;;
   env-drift) env_drift ${@+"$@"} ;;
   build-id) build_id ;;
+  task-base) task_base ${@+"$@"} ;;
+  task-diff) task_diff ${@+"$@"} ;;
   all)
     status=0
     check_arch || status=1
@@ -264,7 +303,7 @@ case "$check" in
     exit "$status"
     ;;
   *)
-    sed -n '6,24p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '6,31p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

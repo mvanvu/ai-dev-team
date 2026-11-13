@@ -25,7 +25,7 @@ Paths are relative to the plugin's `skills/` directory. "Verified by" names the 
 
 | Pack | Applies when the task… | Must read | Numbered checks | Verified by |
 |---|---|---|---|---|
-| `BASE` | always (implied, not written in the `Rules` column) | this file §3 | §3 | reviewer; `BASE-3`, `BASE-4`, `BASE-5`, `BASE-10`, `BASE-11`, `BASE-13`, `BASE-14` self-attested |
+| `BASE` | always (implied, not written in the `Rules` column) | this file §3 | §3 | reviewer; `BASE-3`, `BASE-4`, `BASE-5`, `BASE-10`, `BASE-11`, `BASE-13`, `BASE-14`, `BASE-15`, `BASE-17` self-attested |
 | `COST` | always (implied, not written) — how tests, builds and other heavy commands are run | `dev-team/references/resource-budget.md` | §7 | self-attested; qc for its own runs |
 | `SWEEP` | builds or changes a web-rendered screen (web app, PWA, Capacitor WebView) — not Flutter or native, which qc covers with widget/golden tests | `dev-team/references/resource-budget.md` | `resource-budget.md` §8 | qc, reviewer (design QA) |
 | `TOOL` | scaffolds a new project, app or package | `technical-design/SKILL.md` → Latest-stable toolchain | this file §4 | reviewer |
@@ -43,7 +43,8 @@ Paths are relative to the plugin's `skills/` directory. "Verified by" names the 
 | `PWA` | touches the manifest, service worker, caching, offline fallback or update flow | `pwa-headless-ui/references/pwa.md` | Checks section | qc |
 | `CAP` | touches Capacitor config, plugins or the native shell (always together with `CAPFEEL`) | `pwa-headless-ui/references/capacitor.md` | Checks section | qc |
 | `CAPFEEL` | same as `CAP` | `pwa-headless-ui/references/capacitor-native-feel.md` | §10 | qc |
-| `ABUSE` | adds or changes a public or unauthenticated endpoint, a list/search/export endpoint, or an AI/agent feature | `security-review-checklist/references/automated-abuse.md` | sections §2–§9 (`ABUSE-3` = §3) | reviewer |
+| `ABUSE` | adds or changes a public or unauthenticated endpoint, a list/search/export endpoint, an upload or other endpoint that stores data per call, or an AI/agent feature | `security-review-checklist/references/automated-abuse.md` | sections §2–§9 (`ABUSE-3` = §3) | reviewer |
+| `RESEARCH` | is the request research the user asked for before planning (dev-team Phase 2) | `dev-team/references/request-research.md` | §5 | leader |
 
 Requirements that come from the feature itself keep their own IDs and are reported the same way: acceptance criteria (`AC-n` from the spec) and threat-model requirements (`SEC-n` from `$TEAM_WS/02_threat-model.md`).
 
@@ -59,13 +60,16 @@ A check that names a tool or environment the task cannot use (a device, Xcode, a
 5. **Heavy commands** — test runs, builds and e2e went through `$TEAM_BIN/run-heavy.sh`; no watcher, dev server, emulator or browser is left running.
 6. **Language** — code, comments, specs and notes are in English; comments explain why and never describe bug history.
 7. **Commits** — none unless the user asked; messages are English, imperative, without AI attribution.
-8. **Dependencies** — no new dependency without a stated reason (maintained, size/cost acceptable, no existing utility does it).
+8. **Dependencies** — no new dependency without a stated reason (maintained, size/cost acceptable, no existing utility does it); a new dependency or version was published at least 14 days before it was added, unless the user approved a newer one (supply-chain attacks are usually caught within days).
 9. **Security defaults** — input validated at the boundary, parameterized queries, an authorization check on every entry point, no secrets in code or logs.
 10. **Test scope** — per task and per fix round only the related tests of the changed files and the mapped guards ran (no whole-suite or all-guards runs); failures outside the task are reported as `not mine`, not chased with reruns.
 11. **Shared tree** — no `git stash`, `checkout`, `restore`, `reset`, branch switch, or moving / deleting tracked files on the working tree other agents share; to show a test failing without the change, copy the file to `$TEAM_WS/` and copy it back, or write the test before the code.
 12. **Other repositories** — nothing was written outside this repository unless the brief names that repository and its files and states the user approved it.
 13. **Untracked files and shared environments** — no untracked file or directory was deleted without listing it and getting the user's yes (it cannot be restored from git); before installing, uninstalling or resetting anything on an environment that mounts the repository (a container with the source bind-mounted, a CMS that deletes extension folders on uninstall), `git status` was taken, and taken again after — a tracked file that changed or vanished is restored and reported. Local secrets files (`.env`) change only by named keys, after a backup, and the notes list the keys changed.
-14. **No waiting on yourself** — tests and builds ran in the foreground with a timeout (`run-heavy.sh` applies one by default); the agent never ended its turn to wait for its own background command. A command that hangs or times out is reported as hung with the step that was running, not left running.
+14. **Waiting on your own command** — a test or build ran in the foreground through `run-heavy.sh` (it applies a timeout), or, when it may outlast the foreground limit, as a background task: the agent then ends its turn without a waiting loop, is resumed when the command finishes, and sends its report. No `sleep`/`until` loop, Monitor or second background task waits on the first. A command that hangs or times out is reported as hung with the step that was running, not left running.
+15. **Own processes only** — the agent stopped only processes it started (by its background-task id or a pid it recorded); never `pkill`, `killall` or `kill` by name or pattern, which also kills other agents' test runners and builds. A stray process it did not start is reported to the leader.
+16. **Reuse first** — before adding a feature, component, service, helper, endpoint, script or fixture, the project's capability index (`$TEAM_STATE/capabilities.md`) and the plan's reuse notes were checked, then a bounded search by name; an existing fit was used or extended. The notes hold a `## Reuse` table: what was needed, where it was looked for, and `reused <path>`, `extended <path>` or `new — <why nothing fit>`; anything new that others can reuse is added to the index.
+17. **Shared toolchains and data** — no SDK, toolchain or shared tool was installed or upgraded by the task (a missing or wrong version is reported to the leader, who installs it once); scratch tests and probes that commit data outside a rolled-back transaction (forked processes, a second connection, calls to a running app) removed what they wrote, and the notes show the before/after count.
 
 ## 4. `TOOL` — greenfield toolchain
 1. Installed versions equal the design's `## Toolchain` table; anything not in the table was looked up at install time, not recalled.
@@ -115,12 +119,14 @@ Each verifier adds this table to its verdict, covering the rule IDs of the packs
 - A `fail` is also written as a normal finding or defect in the role's own format, with the rule ID in the title; severity follows the agent's checklist (a rule that protects data, access or a contract is at least `major` / `high`).
 - A developer `pass` whose evidence does not exist or does not show the rule is a `fail` plus a `major` finding ("unsupported compliance claim").
 - A missing `## Rule compliance` section in the notes is a `major` finding; do not review the rest as if it were there.
+- **Reviewer: the whole task diff** — the reviewer reads the task's diff itself (the task's commit, or `$TEAM_BIN/rule-checks.sh task-diff T{id} -- <task files>`), not the developer's description of it, and the verdict carries a `## Files read` list: every changed file, `read` or `skipped — <why>` (generated files, lockfiles). Response fields, serializers and log or audit output added by the task are read line by line: that is where data leaks hide.
 
 ## 8. Leader gates
 - **Brief**: every developer, reviewer and qc brief contains the rule list (§1: one line per rule ID with its check text, plus the must-read path per pack) for the task's `Rules` cell, `BASE` and `COST`, and for each verifier only the rules its role checks (§2), plus "report per `ai-dev-team:dev-team` → `references/rule-packs.md` §6" (developer) or "§7" (verifier). It also carries `TEAM_BIN=<absolute path>` for the team scripts.
 - **DONE gate**: the report says nothing is left running; an identical report arriving again means the agent still has background work — tell it to stop everything and stay idle. Open the notes. No `## Rule compliance` section, a missing rule ID, a `pass` without evidence or an `n-a` without a reason → send the task back with the list of missing rows. This does not count as a fix round. Spot-check the self-attested rows: open one piece of evidence for each (the failing-test output, the wrapped command line, the build-id file).
 - **Verifiers follow the packs**: every task gets a reviewer; qc too unless it is on a light-tier route. A pack verified only by qc on a light-tier task means that task is not small — give it qc.
-- **Verdict gate**: a verdict without a `## Rule check` table for the packs that role verifies → ask that agent for it before accepting the verdict.
+- **Verdict gate**: a verdict without a `## Rule check` table for the packs that role verifies → ask that agent for it before accepting the verdict. A review whose `## Files read` list leaves a changed source file unread (or has no list) goes back to the reviewer before it counts.
+- **Severity check**: a finding that says the task's feature does not work, or fails silently, in a state a user can reach (a sound that never plays, edits that are dropped, a list that never refreshes) is at least `major`; one filed as `minor` goes back to the reviewer (`ai-dev-team:code-review-checklist` → Severity).
 - **Coverage**: a task is `done` when every assigned rule ID is `pass` or `n-a` from the developer **and**, except self-attested rules, `pass` from at least one verifier (an accepted `n-a` needs a verifier that does not contradict it). Rule IDs every verifier marked `n-o` are listed as `unverified` in the task board notes and in the Phase 6 report.
 - **Ledger**: append every verifier `fail` to `$TEAM_WS/rule-violations.md` — a table with the header `| Task | Rule | Found by | Fixed in round |`, one row per fail; the Rule cell is always one rule ID (`COMPACT-5`, `AC-7`, `SEC-12`), never a description — a defect that maps to no rule goes to the notes, not the ledger, and a rule pack that should have caught it is a candidate for a new check.
 - **Recurring defect classes**: the same kind of defect found in two or more tasks without a rule ID (a held write lost when the app goes to the background, a failed reload that leaves a silent stale screen) gets a one-line warning in every later brief, like a rule that failed twice, and is listed in the Phase 6 report as a proposed new check for the pack it belongs to. A rule that fails in two tasks goes into the brief of every later task as a one-line warning, and into the Phase 6 report.
@@ -138,6 +144,7 @@ Rules a script can decide are decided by the script, not by reading. The scripts
 | `COMPACT-6` (Flutter) | `$TEAM_BIN/rule-checks.sh flutter-overflow <saved flutter test output>` | developer, qc |
 | `REAL-2`, `REAL-4` | `$TEAM_BIN/rule-checks.sh ai-look` — hits are candidates (seed data in fixtures, a brief that asks for gradient text); confirm each | developer, reviewer |
 | `SWEEP-3` (build id) | `$TEAM_BIN/rule-checks.sh build-id` — same tree, same id | developer, qc |
+| — (task diff) | `$TEAM_BIN/rule-checks.sh task-base T{id}` when the task starts (no commit per task); `task-diff T{id} [--stat] -- <task files>` for its diff | leader; reviewer |
 | `BASE-7` (team media) | `$TEAM_BIN/rule-checks.sh staged-media` before a commit with team files; `tracked-media` (`--fix` untracks) in Phase 0 | leader |
 | — (environment) | `$TEAM_BIN/rule-checks.sh env-drift` — keys missing from `.env` against the example file; names only, never values | leader (Phase 0), developer of an `env` task |
 
