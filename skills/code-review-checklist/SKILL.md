@@ -37,7 +37,7 @@ Severity: `blocker | major | minor`. Verdict: `APPROVED` (no blocker/major) or `
 - `blocker`: data loss or corruption, a security hole, the build or main flow broken.
 - `major`: the task's feature does not work, or fails silently, in a state a user can reach — a sound that never plays after a refresh, edits dropped on retry or replaced by an old value when a refresh arrives, a screen that keeps showing its old value instead of what the server answered, a list that never updates, a queue that grows without bound and delays other messages, text or a control that overflows or is clipped at a size or theme the app supports, a timeout or connection that is not released on one of the paths; a contract mismatch; a missing test for a changed behavior; a test whose name says the opposite of what it asserts.
 - `minor`: no change in behavior a user can see — naming, structure, a defensive check for a caller that does not exist yet, style.
-A one-line fix can still be `major`; a `minor` with "never", "lost", "silently" or "stops working" in its scenario is mis-filed.
+A visible UI defect the developer calls a trade-off or "known limit" (wasted space, early wrapping, characters shown as boxes) is still filed as a finding with the cost of each fix — the user decides it, never the reviewer (`ai-dev-team:dev-team`, Phase 2 step 4). A one-line fix can still be `major`; a `minor` with "never", "lost", "silently" or "stops working" in its scenario is mis-filed.
 
 ## Structured output (workflow)
 ```json
