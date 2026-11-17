@@ -55,7 +55,7 @@ The final review phase uses the Workflow tool and runs when a feature has 4 or m
 
 ### Resource budget
 Parallel agents are cheap; the test runners and builds they start are not. The profile sets the budget, and you can edit it:
-- `max_agents` (default 4): developers running at once; `max_verifiers` (default 4): reviewers, qc, research agents and the final-review workflow at once; extra work queues.
+- `max_agents` (default 4): developers running at once; `max_verifiers` (default 4): reviewers, qc, research agents and the final-review workflow at once; extra work queues. Both are per leader session, not shared between sessions on one machine; only heavy commands share the machine-wide `heavy_slots`.
 - `heavy_workers` (default CPU threads ÷ 4, kept per machine in the git-ignored `.ai-dev-team/local.md`): worker cap written into every heavy test/build command.
 - `heavy_slots` (default CPU threads ÷ 8, at least 1, per machine in `local.md`): heavy commands running at once across every project on the machine. They go through `$TEAM_BIN/run-heavy.sh` (`flock` slots, one `mkdir` lock on macOS) under `nice`; `run-heavy.sh --status` shows what holds each slot. One test file, a small related run or lint of changed files runs directly, without queuing. `AI_DEV_TEAM_LOCK_WAIT` sets the maximum wait in seconds (default 1800); `AI_DEV_TEAM_TIMEOUT` stops a command that runs longer (default 1800, `0` = no limit), so a hung test runner cannot stall a run.
 
