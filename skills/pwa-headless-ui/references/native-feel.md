@@ -163,6 +163,7 @@ Templates also expose the durations/easings as CSS variables (`--motion-fast`, `
 8. Every gesture has a non-gesture alternative (button or menu item) reachable by keyboard and screen reader.
 9. Every custom gesture surface sets `touch-action` for its axis (e.g. `pan-y` on horizontally swipeable rows), so native scrolling still works.
 10. Every navigation level (menus, submenus, tabs, drawers) is reachable at every width tier by pointer or touch and by keyboard, tested with nested items in the seed data; a level hidden at one width has another way in there.
+11. A page restored from the back/forward cache (`pageshow` with `event.persisted`) restarts its polling or live updates, re-enables controls left busy and refreshes data that may be stale; a page that may hold stale data after Back does this on every `pageshow`.
 
 ## 12. Rendering performance in Vue / React
 
