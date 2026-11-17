@@ -46,7 +46,28 @@ The team keeps its state in one repo folder, `.ai-dev-team/`, so specs, plans an
 
 Projects used with an older version get their `.claude/team/`, `_workspace/` or `~/.local/state/ai-dev-team/projects/<project>/` moved into `.ai-dev-team/` on the next run.
 
-The final review phase uses the Workflow tool and runs when a feature has 4 or more tasks or anything security-related (always for review-only requests). Invoking the `dev-team` skill counts as consent; it stays small (≤ 3 reviewers + verifiers) unless you ask for a thorough review.
+### How a run works
+- **Phase 0–1**: the leader checks the team folder, fills missing profile fields, starts the app stack in the background (`app_start`) and profiles the repo. A stopped stack never holds a task back: work that needs no running app starts at once.
+- **Phase 2–3**: spec and plan with you (superpowers brainstorming / writing-plans when installed). Ambiguous words are asked as concrete options; a rewrite in another stack first lists every behaviour of the old one.
+- **Phase 4**: the build loop. Each task gets a fresh developer, its own reviewer and qc (in parallel), on the model the role table names. Ready tasks that touch disjoint files and environments run side by side; shared integration points (router, manifest, language files, shared stylesheets) get one setup task or are merged by the leader. A verdict gate re-checks every review: severity against fixed anchors, the whole diff read, every UI image opened. Before reporting done, the developer runs the project's fast `guard` command; a defect class that repeats becomes an automated check.
+- **Phase 5**: the final review runs when a feature has 4 or more tasks or anything security-related (always for review-only requests). It uses the Workflow tool while you are present (≤ 3 reviewers + verifiers unless you ask for more) and plain agents when you are away, so no permission prompt can stall it.
+- **Routes**: small changes and layout complaints take a light tier (one developer, one reviewer, no final review) — never for auth, permissions, payments, deletion or schema; bugs are reproduced first; an interrupted run resumes from the board.
+
+### Talking to the leader
+- Every progress message opens with one board line (`done · running · waiting with reasons`), and a short update comes about every 5 minutes while agents run; nothing waits without a written reason.
+- Questions block only when nothing else can run. Otherwise the leader asks in plain text and keeps working. A tool call cut off by your new message is treated as an interruption, not a refusal.
+- Say you are leaving and the leader asks everything up front, settles the UI design first, then decides with the recommended options and logs them in `decisions.md`; commits, pushes and changes to other repositories wait for you.
+- A new decision that makes running or queued tasks obsolete cancels or trims them. Small requests in the same area arriving together become one task. A queued task that blocks what you are trying gets offered to move up.
+- After about 5 finished tasks without commits, the leader asks once whether to commit locally, one commit per task (never a push without you).
+
+### UI design
+Designs are settled with cheap steps before any mockup is coded (`skills/ui-ux-design/references/design-gate.md`):
+1. **References first**: a gallery of real screenshots you mark liked / disliked, or your own references — the leader asks how to use them (mood only, follow one, or listed elements) and never splices two together.
+2. **Overview boards**: three static boards (palette, type, one phone frame, one card, the main button), built in parallel in minutes and spread along the open questions; a 3×3 calibration matrix pins vague words like "modern" or "old" to a position.
+3. **HTML mockup** of the approved direction only, with a page comparing it to the references and a live **token tuner** for colour, radius, font and density — tone changes need no new round.
+4. After two rejected rounds nothing new is drawn until a rejection review, the matrix and the references are done.
+
+Mockups pass design QA (every screen × width × theme opened) before you see them; approved ones are kept in the repo. Designs favour ease of use over looks and avoid the generated look.
 
 ### Research, reuse and phone preview
 - Before planning a new feature or product, the leader asks whether to research it first. On a yes, short time-boxed agents look at what the project already has and at comparable products and practices on the web, and you pick from 3–5 sourced options (core / expected / optional) before the spec questions (`skills/dev-team/references/request-research.md`).
@@ -71,7 +92,9 @@ Heavy commands and UI checks follow two rule packs (`skills/dev-team/references/
 - Mobile lists support pull to refresh of the visible tab only, without triggering the browser reload or fighting tab swipes (`skills/pwa-headless-ui/references/pull-to-refresh.md`); app screens carry no redundant instruction text, and designs avoid the generated look (`skills/ui-ux-design/references/authentic-design.md`).
 - Query count never grows with row count: no N+1 queries or per-row requests, proven by query-count tests (`skills/code-review-checklist/references/query-performance.md`).
 - Rules are enforced per task: the task board lists the rule packs each task must follow, the developer reports one row of evidence per rule, the reviewer and qc re-check them, and the leader only closes a task when every rule is confirmed (`skills/dev-team/references/rule-packs.md`).
-- No commits unless you ask; commit messages are imperative English with no AI attribution.
+- No commits unless you ask; one commit per task, imperative English; AI attribution follows the project's own policy (its `CLAUDE.md` or settings), else your global instructions. Agents never change the git index; only the leader commits.
+- Secrets never land in team files: command output with passwords, tokens or keys is redacted, and test logins are referenced by environment key name only.
+- Environment values changed for a phone or LAN test are logged with their undo and reverted when the preview ends.
 
 ## Optional companions
 
