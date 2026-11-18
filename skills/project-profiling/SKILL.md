@@ -48,7 +48,7 @@ ui: none | web | mobile | web+mobile
 mobile_platform: none | flutter | capacitor | native | react-native
 frontend_arch: none | headless-core | <framework>-conventional
 tests: present | none
-max_agents: 4
+max_agents: 5
 max_verifiers: 4
 app_start: <command that starts the app or demo and waits until it answers; URL source, e.g. http://localhost:${HTTP_PORT} from .env; none>
 ui_widths: none | <comma-separated widths>
@@ -99,6 +99,7 @@ mockup_dir: <tracked repo directory where approved mockups are kept, e.g. docs/m
 updated: YYYY-MM-DD
 playwright_dir: <directory whose node_modules has Playwright: the project root, an existing install, or $TEAM_TOOLS; none>
 framework_src: <where the framework's own source is readable, e.g. vendor/<framework> or a path inside the app container; none>
+leader_guard: on   # the user may set off; the leader never changes it
 heavy_workers: N
 heavy_slots: N
 app_url: <the app URL on this machine, e.g. http://localhost:8080>

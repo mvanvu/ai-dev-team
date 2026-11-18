@@ -122,6 +122,15 @@ button, a, [role='button'] { touch-action: manipulation; }
 button, [role='button'], [role='tab'], nav a { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }  /* interactive chrome only */
 :where(button, [role='button']):active { transform: scale(0.97); transition: transform var(--motion-press, 80ms) ease-out; }
 input, textarea, select { font-size: max(16px, 1rem); }  /* prevents iOS zoom on focus */
+html { scrollbar-gutter: stable; scroll-behavior: smooth; }
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }  /* themed scrollbars, REAL-10 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+::-webkit-scrollbar-track { background: transparent; }
+.sheet, .panel, [data-scroll-inner] { overscroll-behavior: contain; }
+@media (pointer: coarse) { [data-scroll-row] { scrollbar-width: none; } [data-scroll-row]::-webkit-scrollbar { display: none; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 .app-shell { min-height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 @media (prefers-reduced-motion: reduce) { *, ::view-transition-group(*) { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
 ```
