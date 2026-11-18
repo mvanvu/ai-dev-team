@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Layout overflow check and screenshot sweep for the ai-dev-team rules COMPACT-1 (no horizontal
 // page scroll), COMPACT-2 (nothing sticks out of the viewport, no text clipped without an
-// ellipsis), COMPACT-7 (horizontal scrollers draw no scrollbar on phones), COMPACT-9 (touch targets on
+// ellipsis), REAL-10 / REAL-11 (default scrollbars, wasted space, with --scrollbars and --empty), COMPACT-7 (horizontal scrollers draw no scrollbar on phones), COMPACT-9 (touch targets on
 // phones, with --touch) and the COST sweep
 // (every width x every theme in one browser launch, one contact sheet per url).
 //
@@ -16,7 +16,9 @@
 //                      web, 48 for Android-sized app mockups); the hit area is probed with elementFromPoint, so
 //                      padding and ::before/::after extensions of the control count
 //   --empty <px>       report a column of a multi-column row (flex row or grid) whose content ends more than
-//                      px above the row's bottom, the empty band beside a taller neighbour (COMPACT-10)
+//                      px above its neighbours' (COMPACT-10), and empty spacer blocks taller than px (REAL-11)
+//   --scrollbars       report scroll containers, the page included, that keep the browser's default scrollbar
+//                      (scrollbar-width and scrollbar-color both auto) (REAL-10)
 //   --shots <dir>      save a full-page screenshot per url / width / theme / scale, and write
 //                      <dir>/build-id.txt from `rule-checks.sh build-id` beside this script
 //   --sheet            with --shots: also write <dir>/<url>-sheet.png, every width x theme of that url on one image
@@ -53,11 +55,13 @@ function viewportFor(width) {
 }
 
 // Runs inside the page. Must stay self-contained: it is serialized by page.evaluate.
-// Takes the --allow selectors, or { allow, touch, empty } to add the touch-target and empty-band probes.
+// Takes the --allow selectors, or { allow, touch, empty, scrollbars } to add the touch-target, empty-space and
+// scrollbar probes.
 export function findOverflow(arg = []) {
   const allow = Array.isArray(arg) ? arg : (arg.allow || [])
   const touch = Array.isArray(arg) ? 0 : (arg.touch || 0)
   const empty = Array.isArray(arg) ? 0 : (arg.empty || 0)
+  const scrollbars = Array.isArray(arg) ? false : Boolean(arg.scrollbars)
   // The layout viewport width: on phones window.innerWidth grows when content is too wide
   // (the page zooms out to fit), so it cannot be used to detect the overflow that caused it.
   const vw = document.documentElement.clientWidth
@@ -215,6 +219,39 @@ export function findOverflow(arg = []) {
         }
       }
     }
+    // Spacer blocks: an element with no text, media, control, background, border or generated content that is
+    // still taller than the threshold only pushes the layout apart.
+    const media = 'img, svg, video, canvas, picture, iframe, input, select, textarea, button, object, embed'
+    for (const el of document.querySelectorAll('body *')) {
+      if (ignored(el) || el.closest('[hidden]')) continue
+      const rect = el.getBoundingClientRect()
+      if (rect.height <= empty || rect.width < 1) continue
+      if ((el.textContent || '').trim() || el.matches(media) || el.querySelector(media)) continue
+      const cs = getComputedStyle(el)
+      if (cs.backgroundImage !== 'none' || cs.backgroundColor !== 'rgba(0, 0, 0, 0)' || parseFloat(cs.borderTopWidth) > 0
+        || parseFloat(cs.borderBottomWidth) > 0 || cs.boxShadow !== 'none' || cs.position === 'fixed' || cs.position === 'absolute') continue
+      if (['::before', '::after'].some((p) => !['none', 'normal'].includes(getComputedStyle(el, p).content))) continue
+      if ([...el.querySelectorAll('*')].some((d) => { const c = getComputedStyle(d); return c.backgroundImage !== 'none' || c.backgroundColor !== 'rgba(0, 0, 0, 0)' })) continue
+      offenders.push({ rule: 'REAL-11', kind: `spacer-${Math.round(rect.height)}px`, el: describe(el) })
+    }
+  }
+  if (scrollbars) {
+    const root = document.scrollingElement || document.documentElement
+    const scrollers = root.scrollHeight > root.clientHeight + 1 ? [root] : []
+    for (const el of document.querySelectorAll('body *')) {
+      if (ignored(el)) continue
+      const cs = getComputedStyle(el)
+      const canY = scrolls(cs.overflowY) && el.scrollHeight > el.clientHeight + 1
+      const canX = scrolls(cs.overflowX) && el.scrollWidth > el.clientWidth + 1
+      if (canY || canX) scrollers.push(el)
+    }
+    for (const el of scrollers) {
+      const cs = getComputedStyle(el)
+      if (cs.scrollbarWidth === 'none') continue
+      if (cs.scrollbarWidth === 'auto' && cs.scrollbarColor === 'auto') {
+        offenders.push({ rule: 'REAL-10', kind: 'default-scrollbar', el: el === document.documentElement || el === document.scrollingElement ? 'page' : describe(el) })
+      }
+    }
   }
   const pageScroll = document.documentElement.scrollWidth > vw
   return { pageScroll, scrollWidth: document.documentElement.scrollWidth, viewport: vw, offenders }
@@ -223,7 +260,7 @@ export function findOverflow(arg = []) {
 function parseArgs(argv) {
   const options = {
     widths: [360, 390], themes: ['light'], themeSet: null, scale: 1.3, allow: [],
-    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false, touch: 0, empty: 0,
+    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false, touch: 0, empty: 0, scrollbars: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -235,6 +272,7 @@ function parseArgs(argv) {
     else if (arg === '--allow') options.allow.push(argv[++i])
     else if (arg === '--touch') options.touch = Number(argv[++i])
     else if (arg === '--empty') options.empty = Number(argv[++i])
+    else if (arg === '--scrollbars') options.scrollbars = true
     else if (arg === '--shots') options.shots = argv[++i]
     else if (arg === '--storage') options.storage = argv[++i]
     else if (arg === '--init') options.init.push(argv[++i])
@@ -314,7 +352,7 @@ function writeBuildId(dir) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options) {
-    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--touch px] [--empty px] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
+    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--touch px] [--empty px] [--scrollbars] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
     process.exit(64)
   }
   const chromium = loadChromium()
@@ -364,7 +402,7 @@ async function main() {
             // Approximates the OS font scale for rem-based layouts.
             await page.evaluate((s) => { document.documentElement.style.fontSize = s === 1 ? '' : `${16 * s}px` }, scale)
             await page.waitForTimeout(options.wait)
-            const result = await page.evaluate(findOverflow, { allow: options.allow, touch: phone ? options.touch : 0, empty: options.empty })
+            const result = await page.evaluate(findOverflow, { allow: options.allow, touch: phone ? options.touch : 0, empty: options.empty, scrollbars: options.scrollbars })
             const label = `${url} @ ${width}px ${theme} scale ${scale}`
             const cell = `${width} ${theme}${scale === 1 ? '' : ` x${scale}`}`
             if (options.shots) {
