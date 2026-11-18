@@ -68,7 +68,7 @@ Every changed web screen is checked at **every width tier and every theme** the 
 
 ## 6. Leader rules
 - A brief never raises this budget (repeated full-suite runs, a second sweep of an unchanged build, parallel sign-off agents, a "check every task again" pass before sign-off) unless the user asked; when the user asks, tell them the cost first.
-- QC runs once per task, right after the task's build, never batched again later.
+- QC runs once per task, right after the task's build, never batched again later. When the tasks finishing close together share one costly build (a Flutter web or release bundle), one qc walk on one build covers them right after the batch, with a `## QC T{id}` section per task; this is per-task QC and never moves into sign-off.
 - Hand sign-off the list of per-task artifacts, the profile's `playwright_dir` and `ui_flows`, and which sign-off it is (full or light).
 - A brief never asks an agent to rebuild just to check that a build is current (§5 Build currency).
 - The leader's own heavy commands (a build, an e2e run, a stack start before a manual check) go through `run-heavy.sh` like any agent's. An e2e failure whose log shows timeouts or loading states is checked against `run-heavy.sh --status` first; a run that competed for the machine reruns only the failing specs.
@@ -89,6 +89,7 @@ Every changed web screen is checked at **every width tier and every theme** the 
 
 13. **Scripts in the workspace** — throwaway scripts, specs and probes live under `$TEAM_WS/qa-artifacts/<task>/`; Playwright is imported by absolute path from the profile's `playwright_dir` (`import { chromium } from '<PLAYWRIGHT_DIR>/node_modules/playwright/index.mjs'`), never taken from an `npx` cache; no resource (tool, font, image, SDK, framework source) is found by searching the disk — paths come from the brief and the profile (`playwright_dir`, `framework_src`), and a missing one is reported to the leader; nothing is written into `$TEAM_TOOLS`.
 14. **Waiting on CI and deploys** — CI checks, deploy rollouts and other remote waits run as a background task that ends when the state is final (`gh pr checks <n> --watch` in the background, or one poll at the expected time), never in the foreground of a turn; the leader keeps dispatching and answering meanwhile.
+15. **Goldens once** — golden and snapshot files were regenerated once per task (once per fix round when it changes rendering), after the code was final; a golden failure before that was read from its diff image, not regenerated to look.
 
 ## 8. `SWEEP` checks
 1. **Full matrix** — every changed web screen (and each layout variant in the UI spec) ran through every `ui_widths` × `ui_themes` combination (light tier: the light sweep of §3) with worst-case content, in one `overflow-check.mjs --sheet` run; no offenders left.

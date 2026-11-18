@@ -45,7 +45,7 @@ Where a test is impractical (pure styling, config), state why in the task notes 
 - Commits only when the user asked. Message: English, imperative, concise, no AI/Claude attribution.
 
 ## Bug fixes
-1. Reproduce with a failing test (or exact command) first.
+1. Reproduce with a failing test (or exact command) first. A defect seen on the running app is also replayed there with the reporter's exact steps before and after the fix, and the test exercises the component the screen really renders (`BASE-37`). Formatters and auto-fixers run only on the files you changed (`BASE-38`).
 2. Find the root cause — trace data backward from the symptom; do not patch the symptom.
 3. Fix, confirm the test passes, run the related suite for regressions.
 4. For hard bugs, use the `superpowers:systematic-debugging` skill when it is installed in this session; otherwise keep to steps 1–3.
