@@ -15,6 +15,8 @@
 //   --touch <px>       on phone widths, report controls whose hit area is smaller than px x px (44 for the
 //                      web, 48 for Android-sized app mockups); the hit area is probed with elementFromPoint, so
 //                      padding and ::before/::after extensions of the control count
+//   --empty <px>       report a column of a multi-column row (flex row or grid) whose content ends more than
+//                      px above the row's bottom, the empty band beside a taller neighbour (COMPACT-10)
 //   --shots <dir>      save a full-page screenshot per url / width / theme / scale, and write
 //                      <dir>/build-id.txt from `rule-checks.sh build-id` beside this script
 //   --sheet            with --shots: also write <dir>/<url>-sheet.png, every width x theme of that url on one image
@@ -51,10 +53,11 @@ function viewportFor(width) {
 }
 
 // Runs inside the page. Must stay self-contained: it is serialized by page.evaluate.
-// Takes the --allow selectors, or { allow, touch } to add the touch-target probe.
+// Takes the --allow selectors, or { allow, touch, empty } to add the touch-target and empty-band probes.
 export function findOverflow(arg = []) {
   const allow = Array.isArray(arg) ? arg : (arg.allow || [])
   const touch = Array.isArray(arg) ? 0 : (arg.touch || 0)
+  const empty = Array.isArray(arg) ? 0 : (arg.empty || 0)
   // The layout viewport width: on phones window.innerWidth grows when content is too wide
   // (the page zooms out to fit), so it cannot be used to detect the overflow that caused it.
   const vw = document.documentElement.clientWidth
@@ -177,6 +180,42 @@ export function findOverflow(arg = []) {
       }
     }
   }
+  if (empty > 0) {
+    // A column of a multi-column row whose own content ends far above the row's bottom leaves a band
+    // that a neighbour's height does not fill: wasted space next to the taller column.
+    const contentBottom = (node) => {
+      let bottom = -Infinity
+      for (const d of node.querySelectorAll('*')) {
+        const r = d.getBoundingClientRect()
+        if (r.width > 0 && r.height > 0 && getComputedStyle(d).visibility !== 'hidden') bottom = Math.max(bottom, r.bottom)
+      }
+      return bottom
+    }
+    for (const row of document.querySelectorAll('body *')) {
+      if (ignored(row)) continue
+      const cs = getComputedStyle(row)
+      const isRow = (cs.display.includes('flex') && !cs.flexDirection.startsWith('column')) || cs.display.includes('grid')
+      if (!isRow) continue
+      const kids = [...row.children].filter((k) => { const r = k.getBoundingClientRect(); return r.width >= 64 && r.height > 0 })
+      if (kids.length < 2) continue
+      // Group the children into visual lines by their top edge; only columns that sit side by side compare.
+      const lines = new Map()
+      for (const k of kids) {
+        const top = Math.round(k.getBoundingClientRect().top)
+        lines.set(top, [...(lines.get(top) || []), k])
+      }
+      for (const line of lines.values()) {
+        if (line.length < 2) continue
+        const lineBottom = Math.max(...line.map((k) => contentBottom(k)).filter(Number.isFinite))
+        for (const k of line) {
+          const own = contentBottom(k)
+          if (!Number.isFinite(own)) continue
+          const band = lineBottom - own
+          if (band > empty) offenders.push({ rule: 'COMPACT-10', kind: `empty-band-${Math.round(band)}px`, el: describe(k) })
+        }
+      }
+    }
+  }
   const pageScroll = document.documentElement.scrollWidth > vw
   return { pageScroll, scrollWidth: document.documentElement.scrollWidth, viewport: vw, offenders }
 }
@@ -184,7 +223,7 @@ export function findOverflow(arg = []) {
 function parseArgs(argv) {
   const options = {
     widths: [360, 390], themes: ['light'], themeSet: null, scale: 1.3, allow: [],
-    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false, touch: 0,
+    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false, touch: 0, empty: 0,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -195,6 +234,7 @@ function parseArgs(argv) {
     else if (arg === '--scale') options.scale = Number(argv[++i])
     else if (arg === '--allow') options.allow.push(argv[++i])
     else if (arg === '--touch') options.touch = Number(argv[++i])
+    else if (arg === '--empty') options.empty = Number(argv[++i])
     else if (arg === '--shots') options.shots = argv[++i]
     else if (arg === '--storage') options.storage = argv[++i]
     else if (arg === '--init') options.init.push(argv[++i])
@@ -206,7 +246,7 @@ function parseArgs(argv) {
   }
   const valid = options.urls.length && options.scale > 0 && options.themes.length
     && options.widths.length && options.widths.every((w) => Number.isInteger(w) && w > 0)
-    && Number.isFinite(options.wait) && options.wait >= 0 && Number.isFinite(options.touch) && options.touch >= 0 && (options.ready === null || Boolean(options.ready))
+    && Number.isFinite(options.wait) && options.wait >= 0 && Number.isFinite(options.touch) && options.touch >= 0 && Number.isFinite(options.empty) && options.empty >= 0 && (options.ready === null || Boolean(options.ready))
     && (!options.sheet || options.shots)
   return valid ? options : null
 }
@@ -274,7 +314,7 @@ function writeBuildId(dir) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options) {
-    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--touch px] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
+    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--touch px] [--empty px] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
     process.exit(64)
   }
   const chromium = loadChromium()
@@ -324,7 +364,7 @@ async function main() {
             // Approximates the OS font scale for rem-based layouts.
             await page.evaluate((s) => { document.documentElement.style.fontSize = s === 1 ? '' : `${16 * s}px` }, scale)
             await page.waitForTimeout(options.wait)
-            const result = await page.evaluate(findOverflow, { allow: options.allow, touch: phone ? options.touch : 0 })
+            const result = await page.evaluate(findOverflow, { allow: options.allow, touch: phone ? options.touch : 0, empty: options.empty })
             const label = `${url} @ ${width}px ${theme} scale ${scale}`
             const cell = `${width} ${theme}${scale === 1 ? '' : ` x${scale}`}`
             if (options.shots) {

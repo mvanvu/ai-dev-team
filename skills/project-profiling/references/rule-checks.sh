@@ -14,7 +14,8 @@
 #   flutter-overflow <log>  COMPACT-6 "overflowed" in saved flutter test / run output
 #   ai-look [dir...]        REAL-2/4  placeholder copy (lorem ipsum, John Doe, Acme) and gradient text (candidates)
 #   all [base]              every check above except flutter-overflow
-#   staged-media            BASE-7    images or video staged under .ai-dev-team/ (they must stay git-ignored);
+#   staged-media            BASE-7    images or video staged under .ai-dev-team/ (they must stay git-ignored), and staged
+#                                     media over ~200 KB elsewhere (a kept mockup);
 #                                     run before every commit that includes team files
 #   tracked-media           BASE-7    images or video already tracked under .ai-dev-team/ (committed by an older
 #                                     ignore file); `--fix` removes them from the index, the files stay on disk
@@ -221,7 +222,14 @@ check_staged_media() {
   local hits
   hits=$(git diff --cached --name-only --diff-filter=AM -- .ai-dev-team \
     | grep -iE '\.(png|jpe?g|webp|gif|mp4|webm)$' | sed 's|$|: staged image or video (git rm --cached it, fix .ai-dev-team/.gitignore)|')
-  report BASE-7 "$hits"
+  # Elsewhere (a kept mockup, sample data), staged images and video over ~200 KB are reported for recompression.
+  local f size big=""
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    size=$(wc -c < "$f" | tr -d ' ')
+    [ "$size" -gt 204800 ] && big="${big}${f}: staged media of $((size / 1024)) KB outside .ai-dev-team (recompress to about 150 KB or reference an existing image)"$'\n'
+  done < <(git diff --cached --name-only --diff-filter=AM | grep -v '^\.ai-dev-team/' | grep -iE '\.(png|jpe?g|webp|gif|mp4|webm)$' || true)
+  report BASE-7 "$(printf '%s\n%s' "$hits" "$big" | sed '/^$/d')"
 }
 
 check_tracked_media() {
