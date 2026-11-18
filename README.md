@@ -42,7 +42,7 @@ The team keeps its state in one repo folder, `.ai-dev-team/`, so specs, plans an
 - `.ai-dev-team/project-profile.md`: detected stack, verified commands and the resource budget, kept across runs.
 - `.ai-dev-team/workspace/`: spec, plan, UI spec, threat model, task board, task notes, QC reports and mockups of the current run; finished runs are archived beside it. Commit it with the work; screenshots, contact sheets and recordings are ignored by `.ai-dev-team/.gitignore`.
 - `~/.local/state/ai-dev-team/qa-tools/`: a Playwright install shared by all projects on this machine, used only when a project has none.
-- Scripts run straight from the installed plugin (`skills/project-profiling/references/`), so a plugin update takes effect without touching any repo: `run-heavy.sh` runs heavy commands (tests, builds, audits) a few at a time at low CPU priority; `rule-checks.sh` and `overflow-check.mjs` decide the rules a machine can check (`rule-checks.sh task-base` / `task-diff` give each task its own diff); `device-preview.mjs` puts the app on your phone with a QR code; `token-tuner.js` lets you adjust a mockup's colours, radius, font and density live and export them.
+- Scripts run straight from the installed plugin (`skills/project-profiling/references/`), so a plugin update takes effect without touching any repo: `run-heavy.sh` runs heavy commands (tests, builds, audits) a few at a time at low CPU priority; `rule-checks.sh` and `overflow-check.mjs` decide the rules a machine can check (`rule-checks.sh task-base` / `task-diff` give each task its own diff); `device-preview.mjs` puts the app on your phone with a QR code; `overflow-check.mjs --touch 44 --empty 48` also catches small tap targets and empty bands beside taller columns.
 
 Projects used with an older version get their `.claude/team/`, `_workspace/` or `~/.local/state/ai-dev-team/projects/<project>/` moved into `.ai-dev-team/` on the next run.
 
@@ -62,10 +62,10 @@ Projects used with an older version get their `.claude/team/`, `_workspace/` or 
 
 ### UI design
 Designs are settled with cheap steps before any mockup is coded (`skills/ui-ux-design/references/design-gate.md`):
-1. **References first**: a gallery of real screenshots you mark liked / disliked, or your own references — the leader asks how to use them (mood only, follow one, or listed elements) and never splices two together.
-2. **Overview boards**: three static boards (palette, type, one phone frame, one card, the main button), built in parallel in minutes and spread along the open questions; a 3×3 calibration matrix pins vague words like "modern" or "old" to a position.
-3. **HTML mockup** of the approved direction only, with a page comparing it to the references and a live **token tuner** for colour, radius, font and density — tone changes need no new round.
-4. After two rejected rounds nothing new is drawn until a rejection review, the matrix and the references are done.
+1. **References first**: a gallery of real screenshots the designer studies, or your own references — the leader asks how to use them (mood only, follow one, or listed elements) and never splices two together or copies one.
+2. **Overview boards**: three static boards (palette, type, one phone frame, one card, the main button), built in parallel in minutes and different in shape language and layout, not only colour; a 3×3 calibration matrix pins vague words like "modern" or "old" to a position.
+3. **HTML mockup** of the approved direction only, with a page comparing it to the references; tone and colour changes are token edits, not a new round.
+4. After two rejected rounds nothing new is drawn until a rejection review, the matrix and the references are done; after three, a fresh designer studies market-grade examples of the product type and designs from that study — you approve the result, you never have to pick among templates.
 
 Mockups pass design QA (every screen × width × theme opened) before you see them; approved ones are kept in the repo. Designs favour ease of use over looks and avoid the generated look.
 
