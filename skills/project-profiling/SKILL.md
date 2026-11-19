@@ -50,6 +50,7 @@ frontend_arch: none | headless-core | <framework>-conventional
 tests: present | none
 max_agents: 5
 max_verifiers: 4
+test_isolation: <per app: worktree (tests read only their own checkout) | shared-tree (tests run on the main tree mounted into a container, or on one shared database, so a worktree does not isolate them)>
 app_start: <command that starts the app or demo and waits until it answers; URL source, e.g. http://localhost:${HTTP_PORT} from .env; none>
 ui_widths: none | <comma-separated widths>
 ui_themes: light | light,dark
