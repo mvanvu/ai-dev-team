@@ -23,15 +23,15 @@ BASH_WRITES = re.compile(
 PY_HEREDOC = re.compile(r"\bpython3?\s+(-[A-Za-z]+\s+)*-\s*<<")
 PY_WRITES = re.compile(r"\.write\(|open\([^)]*['\"][wa]\+?['\"]")
 SHARED_TREE = re.compile(
-    r"\bgit\s+(checkout\s+(--|-p\b)|restore\s+(?!--staged)|stash\b|clean\b|reset\s+--(hard|keep|merge)\b)"
+    r"\bgit\s+(checkout\s+(--|-p\b|\S+\s+--|[^-\s]\S*[./])|restore\s+(?!--staged)|stash\b|clean\b|reset\s+--(hard|keep|merge)\b)"
     r"|\bpkill\b|\bkillall\b|\bnohup\b"
     r"|(^|[^&|>])&\s*($|;|\n)"
 )
-AGENT_GIT = re.compile(r"\bgit\s+(switch|checkout\s+-b|branch\s+-[dD]|commit|add|rm\b|mv\b|reset\b|restore\b)")
+AGENT_GIT = re.compile(r"\bgit\s+(switch|checkout\b|branch\s+-[dD]|commit|add|rm\b|mv\b|reset\b|restore\b)")
 SHARED_REASON = (
     "ai-dev-team guard: this command can discard or hide other people's work on the shared tree or bypass the "
     "harness (BASE-11, BASE-14, BASE-15, BASE-24). Copy a file to $TEAM_WS/ and back instead of checkout/restore/"
-    "stash; stop only your own background task with TaskStop <id>; run long commands with run_in_background "
+    "stash (a branch switch is `git switch`); stop only your own background task with TaskStop <id>; run long commands with run_in_background "
     "(through run-heavy.sh), never nohup or a trailing &. Only the leader commits, at commit time."
 )
 STAGE_ALL = re.compile(r"\bgit\s+add\s+(-A\b|--all\b|\.(\s|$)|-u\b)")
