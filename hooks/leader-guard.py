@@ -22,6 +22,11 @@ BASH_WRITES = re.compile(
 )
 PY_HEREDOC = re.compile(r"\bpython3?\s+(-[A-Za-z]+\s+)*-\s*<<")
 PY_WRITES = re.compile(r"\.write\(|open\([^)]*['\"][wa]\+?['\"]")
+PY_RETYPE = re.compile(r"\.replace\(|\bre\.sub\(")
+RETYPE_REASON = (
+    "ai-dev-team guard (COST-8): a `python3 -` heredoc that re-types old and new text into files is not allowed. "
+    "Use the Edit tool (all changes to one file in one pass), `perl -pi -e` for one substitution across many files, "
+    "or `git apply` with a unified diff; a python script only for real logic, saved as a file under $TEAM_WS.")
 SHARED_TREE = re.compile(
     r"\bgit\s+(checkout\s+(--|-p\b|\S+\s+--|[^-\s]\S*[./])|restore\s+(?!--staged)|stash\b|clean\b|reset\s+--(hard|keep|merge)\b)"
     r"|\bpkill\b|\bkillall\b|\bnohup\b"
@@ -137,6 +142,12 @@ def bash_denied(data):
     return bool(PY_HEREDOC.search(command) and PY_WRITES.search(command))
 
 
+def retype_denied(data):
+    """Agent edits that re-type text through a python heredoc (COST-8)."""
+    command = (data.get('tool_input') or {}).get('command') or ''
+    return bool(PY_HEREDOC.search(command) and PY_WRITES.search(command) and PY_RETYPE.search(command))
+
+
 def deny(reason):
     print(json.dumps({'hookSpecificOutput': {
         'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', 'permissionDecisionReason': reason}}))
@@ -151,6 +162,9 @@ def main():
     tool = data.get('tool_name')
     if tool == 'Bash' and shared_tree_denied(data, agent):
         deny(SHARED_REASON)
+        return
+    if agent and tool == 'Bash' and retype_denied(data):
+        deny(RETYPE_REASON)
         return
     if agent or not leading_run(data):
         return
