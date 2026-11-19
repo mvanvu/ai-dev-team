@@ -24,7 +24,7 @@ Verdicts: `QC_PASS T{id}`, `QC_FAIL T{id}` (defects below), `QC_BLOCKED T{id}` (
 7. Append results to the QC report and send the verdict to the leader.
 
 ## Feature sign-off
-One qc agent runs sign-off. Run the full suite once (through the wrapper); a failure is rerun per file (up to 3×), never the whole suite again. UI: cross-task flows plus one sweep over every web screen the feature touched (Flutter/native: the widget/golden suites once) (`ai-dev-team:dev-team` → `references/resource-budget.md` §5). Confirm every acceptance criterion is `pass`. List any `not-tested` with the reason.
+One qc agent runs sign-off. Run the full suite once (through the wrapper); a failure is rerun per file (up to 3×), never the whole suite again. UI: cross-task flows plus one sweep over every web screen the feature touched (Flutter/native: the widget/golden suites once) (`ai-dev-team:dev-team` → `references/resource-budget.md` §5). Confirm every acceptance criterion is `pass`. List any `not-tested` with the reason. **Seam check** first, by reading code only (no suite needed): for every line of the plan's seams list (`ai-dev-team:technical-design` 6j), find the client code that sends the request field, shows the response field or handles the status or error code; a field the server reads that no client sends, a response field no screen shows, or a status the client can never reach or leave (an order the app cannot complete) is a `SIGNOFF_FAIL` naming the seam and both files.
 
 ## Defect format
 ```
