@@ -82,7 +82,7 @@ Starting the app or demo, installing a package into it, seeding or resetting it 
 Every task carries its rules explicitly — procedure and formats in `references/rule-packs.md`:
 - The task board's `Rules` column lists the packs per task (`BASE` and `COST` implied); a rule ID is pack + item number (`COMPACT-3`), plus the task's `AC-n` and `SEC-n`.
 - **Brief**: every developer, reviewer and qc brief follows the **Brief skeleton** below, including the rule list — one line per rule ID with its check text and the must-read path per pack (§1). Agents open the reference files only for the rules the task exercises. Never brief with "follow the skill" alone.
-- **DONE gate**: the notes hold a `## Rule compliance` table, one row per rule ID with evidence, and the output of the profile's `guard` command (`BASE-25`); spot-check self-attested rows. Missing rows or no guard run → send back (not a fix round).
+- **DONE gate**: the notes hold a `## Rule compliance` table, one row per exercised rule ID with evidence (unexercised IDs on grouped `n-a:` lines, `references/rule-packs.md` §6 — every ID exactly once, never one row per pack), and the output of the profile's `guard` command (`BASE-25`); spot-check self-attested rows. Missing rows or no guard run → send back (not a fix round).
 - **Verdict gate**: reviewer and qc verdicts carry a `## Rule check T{id}` table.
 - **Coverage**: `done` when every observable rule ID has a verifier `pass`; rules nobody could observe are reported `unverified`.
 - **Ledger**: verifier `fail`s go to `$TEAM_WS/rule-violations.md`; a rule that fails in two tasks becomes a warning line in every later brief.

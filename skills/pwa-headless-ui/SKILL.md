@@ -83,5 +83,5 @@ To make the wrapped app feel native, also read `references/capacitor-native-feel
 
 ## Done criteria
 - Type-check, lint, tests, build all green (real output in notes).
-- Task notes contain the `## Rule compliance` table: one row with evidence per rule ID of `BASE`, `COST` and each assigned pack (`ai-dev-team:dev-team` → `references/rule-packs.md` §6).
+- Task notes contain the `## Rule compliance` table: one row with evidence per exercised rule ID of `BASE`, `COST` and each assigned pack, unexercised IDs on grouped `n-a:` lines (`ai-dev-team:dev-team` → `references/rule-packs.md` §6).
 - Without assigned packs (standalone use), run the numbered checks of every reference this task touched: `architecture.md` §9 always; `compact-layout.md` §7 for phone screens; `list-page.md` §9 for lists and pickers; `native-feel.md` §11 for navigation, gestures, overlays and long lists; `pull-to-refresh.md` §8 for server-data lists on phones; `connectivity.md` §10 for mobile apps with online data; the Checks sections of `pwa.md`, `capacitor.md` and `capacitor-native-feel.md` §10 for PWA / Capacitor tasks.

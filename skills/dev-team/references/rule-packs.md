@@ -123,6 +123,7 @@ Before coding, read the rule list in the brief. Open a pack's reference file onl
 - `fail` means the task is not done: fix it, or report `BLOCKED T{id}` with the rule ID and the reason.
 - Never mark a rule `pass` without having checked it in this task; an unchecked rule is reported as `fail`.
 - A rule listed in §9 is proven by its script: the evidence is the command and its output, nothing else.
+- Rules the task does not exercise go on `n-a:` lines under the table instead of one row each, IDs sharing a reason grouped: `n-a: BASE-6, BASE-8 (no dependency change) · BASE-7 (no commit in this task) · COST-6 (no audit)`. Every rule ID of `BASE`, `COST`, the assigned packs and the task's `AC-n`, `SEC-n` and `USER-n` appears exactly once — in a row or on an `n-a:` line; self-attested rules the task exercises keep their own row with concrete evidence. A row per pack (`BASE | pass`) instead of per rule ID is sent back.
 
 ## 7. Rule check (reviewer, qc)
 Each verifier adds this table to its verdict, covering the rule IDs of the packs it is named for in §2 (and any other rule it happened to check), except self-attested ones:
