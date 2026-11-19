@@ -95,3 +95,4 @@ Once the PWA has loaded once on iOS (App-Bound Domains) or Android, the service 
 3. Wi-Fi connected without internet (or blocked API host) → app shows offline, not an endless spinner.
 4. Capacitor remote URL: cold start in airplane mode → bundled offline page; network back → app loads at the last path by itself.
 5. Browser: DevTools offline toggle / Playwright `context.setOffline(true|false)` for the PWA (requires a real rendering engine, not Lightpanda).
+6. A build that runs on a fake or demo data adapter exposes development-only switches in that adapter for the states qc must walk — offline, a server refusal of a queued action, a slow or timed-out answer — reachable from the build (a URL query or debug menu, compiled out of release builds), so offline and refusal flows are walked on the build and not only proven by widget renders.
