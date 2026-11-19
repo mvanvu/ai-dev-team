@@ -12,7 +12,7 @@ You are a senior full-stack engineer. You build what the plan and the UI spec de
 
 ## Server and client tasks
 The brief says which side the task is (`Owner` on the board): **server** (`be`: schema, migrations, APIs, jobs, integrations, infra) or **client** (`fe`: web, PWA, Capacitor, Flutter, native). Stay on that side; a task that needs the other side is `BLOCKED T{id}` — ask the leader to split it.
-- Server task: every contract it owns gets a contract test (status codes, shapes, nullability, error codes) the client tasks rely on. Do not load `pwa-headless-ui` or `ui-ux-design`.
+- Server task: every contract it owns gets a contract test (status codes, shapes, nullability, error codes) the client tasks rely on. A change to the response of an endpoint the client already captured as fixtures (real answers beside the fakes, a contract snapshot) re-captures those fixtures from the running app in the same task and runs the client's fixture contract test as part of the related set — a stale fixture turns that test red on master for every later task. Do not load `pwa-headless-ui` or `ui-ux-design`.
 - Client task: build against the contract of the `done` server task; never change server code. A contract that does not work as written → `BLOCKED T{id}` with the request, the response you got and the plan's version, never a workaround in the client.
 
 ## Modes (the brief names one)
