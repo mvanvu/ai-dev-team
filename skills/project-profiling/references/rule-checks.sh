@@ -33,6 +33,9 @@
 #   task-diff <id> [git diff options] [-- paths]
 #                           not a check: the diff from task <id>'s start to the tree now (new untracked files
 #                           included); limit it to the task's files with `-- <paths>` when tasks run in parallel
+#   review-coverage <id> <review file>
+#                           BASE (verdict gate): changed files of task <id> that the review's "## Files read" table
+#                           does not mark read (rows marked part or grep only do not count)
 # Exit: 0 no violation (or the check does not apply here), 1 violations found, 64 usage error.
 # Portable to bash 3.2 (macOS): no mapfile, empty arrays expanded with ${a[@]+"${a[@]}"}.
 set -u
@@ -309,8 +312,33 @@ task_diff() {
   git diff "$base" "$(task_tree)" ${@+"$@"}
 }
 
+review_coverage() {
+  # A changed file is covered when the review's "## Files read" table has a row whose first cell is its path
+  # (or a path suffix of it) and whose second cell starts with "read", or "skipped" for generated, lock or
+  # binary files. "part" and "grep" rows do not count.
+  local id="${1:-}" review="${2:-}" files status=0 f
+  [ -n "$id" ] && [ -f "$review" ] || { echo "usage: $0 review-coverage <task id> <review file>" >&2; return 64; }
+  files=$(task_diff "$id" --name-only) || return 64
+  local rows
+  rows=$(awk '/^## Files read/{f=1; next} /^## /{f=0} f && /^\|/' "$review" |
+    awk -F'|' '{p=$2; s=$3; gsub(/^[ `]+|[ `]+$/, "", p); gsub(/^ +| +$/, "", s); s=tolower(s);
+      if (s ~ /^read/ && s !~ /part|grep/) print p;
+      else if (s ~ /^skipped/ && s ~ /generated|lock|binary/) print p }')
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if ! printf '%s\n' "$rows" | awk -v f="$f" 'NF && (f == $0 || (length(f) > length($0) && substr(f, length(f) - length($0)) == "/" $0)) {found=1} END {exit !found}'; then
+      echo "BASE review-coverage $f: changed by $id, not marked read in $review"
+      status=1
+    fi
+  done <<EOF
+$files
+EOF
+  return "$status"
+}
+
 case "$check" in
   arch) check_arch ${@+"$@"} ;;
+  review-coverage) review_coverage ${@+"$@"} ;;
   list-storage) check_list_storage ${@+"$@"} ;;
   commits) check_commits ${@+"$@"} ;;
   prerelease) check_prerelease ;;
@@ -336,7 +364,7 @@ case "$check" in
     exit "$status"
     ;;
   *)
-    sed -n '6,35p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '6,38p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac
