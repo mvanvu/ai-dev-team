@@ -33,6 +33,11 @@
 #   task-diff <id> [git diff options] [-- paths]
 #                           not a check: the diff from task <id>'s start to the tree now (new untracked files
 #                           included); limit it to the task's files with `-- <paths>` when tasks run in parallel
+#   related-tests <id> | -- <files...>
+#                           not a check: test files that import or name a changed source file of task <id> (or of
+#                           the files given after --), found by the file's name stem across every test file of the
+#                           repository, not only the feature's test folder (COST-10); the developer runs this set
+#                           and the notes show the list
 #   review-coverage <id> <review file>
 #                           BASE (verdict gate): changed files of task <id> that the review's "## Files read" table
 #                           does not mark read (rows marked part or grep only do not count)
@@ -312,6 +317,29 @@ task_diff() {
   git diff "$base" "$(task_tree)" ${@+"$@"}
 }
 
+related_tests() {
+  local files f stem tests
+  if [ "${1:-}" = "--" ]; then shift; files=$(printf '%s\n' "$@")
+  elif [ -n "${1:-}" ]; then files=$(task_diff "$1" --name-only) || return 64
+  else echo "usage: $0 related-tests <task id> | -- <files...>" >&2; return 64; fi
+  tests=$( { git ls-files; git ls-files --others --exclude-standard; } 2>/dev/null |
+    grep -v '^\.ai-dev-team/' |
+    grep -E '(^|/)(test|tests|spec|__tests__|integration_test)/|_test\.[a-z]+$|\.(test|spec)\.[a-z]+$|Test\.[a-z]+$|(^|/)test_[^/]+\.py$' |
+    sort -u)
+  [ -n "$tests" ] || return 0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    printf '%s\n' "$tests" | grep -qxF "$f" && { echo "$f"; continue; }
+    stem=$(basename "$f"); stem=${stem%.*}
+    [ ${#stem} -ge 3 ] || continue
+    printf '%s\n' "$tests" | while IFS= read -r t; do
+      [ -f "$t" ] && grep -qwF "$stem" "$t" 2>/dev/null && echo "$t"
+    done
+  done <<EOF_FILES
+$files
+EOF_FILES
+}
+
 review_coverage() {
   # A changed file is covered when the review's "## Files read" table has a row whose first cell is its path
   # (or a path suffix of it) and whose second cell starts with "read", or "skipped" for generated, lock or
@@ -339,6 +367,7 @@ EOF
 case "$check" in
   arch) check_arch ${@+"$@"} ;;
   review-coverage) review_coverage ${@+"$@"} ;;
+  related-tests) related_tests ${@+"$@"} | sort -u ;;
   list-storage) check_list_storage ${@+"$@"} ;;
   commits) check_commits ${@+"$@"} ;;
   prerelease) check_prerelease ;;
