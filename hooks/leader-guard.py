@@ -4,7 +4,8 @@ During a dev-team run the main session is the leader: it plans, briefs and talks
 change the project's files. This hook denies a leader tool call that would change a project file outside
 `.ai-dev-team/` and `.claude/`, or stage a whole folder. Agent calls (the input carries `agent_id`) may edit
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
-detach a process from the harness are denied for everyone. Repositories without a team workspace and leader
+detach a process from the harness are denied for everyone, as are shell writes into the team files that still
+expand a backtick. Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
 sessions that never loaded the dev-team skill are left alone. Any error lets the call through.
 
 Turned off for one machine by the user with `leader_guard: off` in `.ai-dev-team/local.md`.
@@ -15,6 +16,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 
 ALLOWED_DIRS = ('.ai-dev-team', '.claude')
 BASH_WRITES = re.compile(
@@ -39,6 +41,20 @@ SHARED_REASON = (
     "stash (a branch switch is `git switch`); stop only your own background task with TaskStop <id>; run long commands with run_in_background "
     "(through run-heavy.sh), never nohup or a trailing &. Only the leader commits, at commit time."
 )
+TEAM_WRITE = re.compile(r"(>>?|\btee\b)[^;&|\n]*(\.ai-dev-team|TEAM_WS|TEAM_STATE)|\.ai-dev-team[^;&|\n]*&&[^;|\n]*(>>?|\btee\b)")
+QUOTED_HEREDOC = re.compile(r"<<-?\s*(['\"])(\w+)\1.*?\n\2[ \t]*(\n|$)", re.S)
+SINGLE_QUOTED = re.compile(r"'[^']*'")
+SUBST_REASON = (
+    "ai-dev-team guard: this command writes into the team files while the shell still expands a backtick in it, "
+    "so `...` runs as a command and its output (a whole git diff, for example) lands in the board. "
+    "Write board, notes and decisions with the Edit tool, or a heredoc with a quoted delimiter (<<'EOF'); "
+    "put a time from `date` in a variable first: t=$(date +%H:%M); then use \"$t\" outside the quoted text.")
+SCRIPT_TARGET = re.compile(r"(?:>|\btee\s+(?:-a\s+)?)\s*([^\s;&|<>]+\.(?:mjs|cjs|js|ts|py))\b")
+BROWSER_SCRIPT = re.compile(r"playwright|chromium\.launch|webkit\.launch")
+SCRIPT_REASON = (
+    "ai-dev-team guard (COST-13, qa-verification browser-testing P.1): this task folder already has browser scripts "
+    "written in the last 90 minutes. Extend one of them to take a list of flows or states (one browser launch, one "
+    "result line per flow) and run it with arguments, instead of writing a new script and launching a browser per check.")
 STAGE_ALL = re.compile(r"\bgit\s+add\s+(-A\b|--all\b|\.(\s|$)|-u\b)")
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEAM_BIN = os.path.join(PLUGIN_ROOT, 'skills', 'project-profiling', 'references')
@@ -148,6 +164,48 @@ def retype_denied(data):
     return bool(PY_HEREDOC.search(command) and PY_WRITES.search(command) and PY_RETYPE.search(command))
 
 
+def substitution_denied(data):
+    """A shell write into the team files that still expands a backtick (board pasted with command output)."""
+    command = (data.get('tool_input') or {}).get('command') or ''
+    if '`' not in command or not TEAM_WRITE.search(command):
+        return False
+    live = SINGLE_QUOTED.sub('', QUOTED_HEREDOC.sub('', command))
+    return '`' in live
+
+
+def extra_script_denied(data):
+    """An agent writing yet another browser script into a task's qa-artifacts folder."""
+    tool_input = data.get('tool_input') or {}
+    cwd = data.get('cwd') or os.getcwd()
+    if data.get('tool_name') == 'Write':
+        target, body = tool_input.get('file_path') or '', tool_input.get('content') or ''
+    else:
+        command = tool_input.get('command') or ''
+        match = SCRIPT_TARGET.search(command)
+        if not match:
+            return False
+        target, body = match.group(1), command
+        lead = re.match(r"\s*cd\s+([^\s;&|]+)\s*(&&|;)", command)
+        if lead:
+            cwd = os.path.join(cwd, os.path.expanduser(lead.group(1)))
+    if not target.endswith(('.mjs', '.cjs', '.js', '.ts', '.py')) or not BROWSER_SCRIPT.search(body):
+        return False
+    target = os.path.abspath(os.path.join(cwd, os.path.expanduser(target)))
+    folder = os.path.dirname(target)
+    if 'qa-artifacts' not in folder.split(os.sep) or os.path.exists(target):
+        return False
+    recent = 0
+    now = time.time()
+    for name in os.listdir(folder):
+        path = os.path.join(folder, name)
+        if not name.endswith(('.mjs', '.cjs', '.js', '.ts', '.py')) or now - os.path.getmtime(path) > 5400:
+            continue
+        with open(path, encoding='utf-8', errors='ignore') as fh:
+            if BROWSER_SCRIPT.search(fh.read(20000)):
+                recent += 1
+    return recent >= 2
+
+
 def deny(reason):
     print(json.dumps({'hookSpecificOutput': {
         'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', 'permissionDecisionReason': reason}}))
@@ -163,8 +221,14 @@ def main():
     if tool == 'Bash' and shared_tree_denied(data, agent):
         deny(SHARED_REASON)
         return
+    if tool == 'Bash' and substitution_denied(data):
+        deny(SUBST_REASON)
+        return
     if agent and tool == 'Bash' and retype_denied(data):
         deny(RETYPE_REASON)
+        return
+    if agent and tool in ('Bash', 'Write') and extra_script_denied(data):
+        deny(SCRIPT_REASON)
         return
     if agent or not leading_run(data):
         return
