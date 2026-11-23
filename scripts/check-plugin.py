@@ -62,7 +62,7 @@ def resolve_reference(name, source):
 # 1 + 2: file and section references
 for path in all_docs:
     text = path.read_text()
-    for name in set(re.findall(r"references/([\w.-]+\.(?:md|sh|mjs|js))", text)):
+    for name in set(re.findall(r"references/([\w.-]+\.(?:md|sh|mjs|js|py))", text)):
         if name not in reference_files:
             problem(path, f"references/{name} does not exist")
     for name, section in set(re.findall(r"`?([\w-]+\.md)`? §(\d+[a-z]?)", text)):
