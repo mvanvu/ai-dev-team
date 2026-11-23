@@ -1,0 +1,3 @@
+- [Bump version once per push](feedback-bump-version-once-per-push.md) — plugin version changes only right before a push, never per change/commit
+- [Monitoring runs workflow](feedback-monitor-runs-workflow.md) — implement recommended fixes, commit locally, notify sessions; bump + push only on the user's word
+- [Plugin update reach](project-plugin-update-reach.md) — mid-run update applies hooks/scripts at once; rule text only after the skill is reloaded
