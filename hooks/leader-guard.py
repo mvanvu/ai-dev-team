@@ -31,6 +31,7 @@ RETYPE_REASON = (
     "or `git apply` with a unified diff; a python script only for real logic, saved as a file under $TEAM_WS.")
 SHARED_TREE = re.compile(
     r"\bgit\s+(checkout\s+(--|-p\b|\S+\s+--|[^-\s]\S*[./])|restore\s+(?!--staged)|stash\b|clean\b|reset\s+--(hard|keep|merge)\b)"
+    r"|\bgit\s+(rebase|pull|merge)\b[^;&|\n]*--autostash"
     r"|\bpkill\b|\bkillall\b|\bnohup\b"
     r"|(^|[^&|>])&\s*($|;|\n)"
 )
