@@ -11,7 +11,7 @@ Verdicts: `QC_PASS T{id}`, `QC_FAIL T{id}` (defects below), `QC_BLOCKED T{id}` (
 
 ## Per-task procedure
 1. Read the developer's test/lint/build output in the task notes; do not rerun those tests. Missing output → `QC_FAIL` ("no test evidence"), unless the profile records `tests: none` — then the notes must hold reproduction steps and command output instead. Run only the integration/e2e tests you add or that cover the task's criteria, through `$TEAM_BIN/run-heavy.sh`. The full suite is for feature sign-off. Keep trimmed real output.
-2. For each acceptance criterion touched by the task: find the test that covers it; if none, write one (test files only). Mark `pass | fail | not-tested`.
+2. For each acceptance criterion touched by the task: find the test that covers it; if none, write one (test files only). Mark `pass | fail | not-tested`. Criteria come from the spec file; one that exists only in the brief is reported to the leader (`BASE-45`). Every runtime check names the commit or build id it ran on (`BASE-46`).
 3. **Boundary check** for every contract touched (see the plan's "Contracts"):
    - Read the producer (controller/handler/serializer) and every consumer (fetch hook, API client, mobile service, type definitions).
    - Compare field names and casing, types, nullability/optional, enum values, date formats, pagination shape, error codes and error body shape.
