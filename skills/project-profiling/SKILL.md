@@ -104,6 +104,7 @@ updated: YYYY-MM-DD
 playwright_dir: <directory whose node_modules has Playwright: the project root, an existing install, or $TEAM_TOOLS; none>
 framework_src: <where the framework's own source is readable, e.g. vendor/<framework> or a path inside the app container; none>
 leader_guard: on   # the user may set off; the leader never changes it
+account_switch: none   # cswap account numbers the leader may switch to near a usage limit, e.g. 2, 3; set by the user only
 heavy_workers: N
 heavy_slots: N
 app_url: <the app URL on this machine, e.g. http://localhost:8080>
