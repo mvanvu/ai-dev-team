@@ -5,7 +5,8 @@ change the project's files. This hook denies a leader tool call that would chang
 `.ai-dev-team/` and `.claude/`, or stage a whole folder. Agent calls (the input carries `agent_id`) may edit
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
 detach a process from the harness are denied for everyone, a leader spawn of a team agent without an explicit `model` is denied, as are shell writes into the team files that still
-expand a backtick. Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
+expand a backtick. Agents may not write project files through inline node / python scripts or run `sed -i` over
+several files (COST-8). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
 sessions that never loaded the dev-team skill are left alone. Any error lets the call through.
 
 Turned off for one machine by the user with `leader_guard: off` in `.ai-dev-team/local.md`.
@@ -14,6 +15,7 @@ import json
 import mmap
 import os
 import re
+import shlex
 import sys
 import tempfile
 import time
@@ -166,6 +168,126 @@ def retype_denied(data):
     return bool(PY_HEREDOC.search(command) and PY_WRITES.search(command) and PY_RETYPE.search(command))
 
 
+NODE_EVAL = re.compile(r"\bnode\s+(-[A-Za-z-]+\s+)*(-e\b|--eval\b|-p\b|--print\b|-\s*<<|<<)")
+NODE_WRITES = re.compile(r"\b(writeFileSync|writeFile|appendFileSync|appendFile)\s*\(")
+PY_INLINE = re.compile(r"\bpython3?\s+(-[A-Za-z]+\s+)*(-\s*<<|-c\b)")
+PY_OPEN_WRITE = re.compile(
+    r"(?<![\w.])open\(\s*(?P<path>[^,()]+(?:\([^()]*\))?[^,()]*?)\s*,\s*(?:mode\s*=\s*)?[rbf]?['\"](?P<mode>[rwaxbt+]+)['\"]")
+PY_RECEIVER = r"((?:pathlib\.)?Path\([^()]*\)|[A-Za-z_][\w.]*)"
+PY_METHOD_WRITE = re.compile(PY_RECEIVER + r"\.(?:write_text|write_bytes)\(")
+PY_METHOD_OPEN = re.compile(PY_RECEIVER + r"\.open\(\s*(?:mode\s*=\s*)?['\"](?P<mode>[rwaxbt+]+)['\"]")
+PY_ANY_METHOD_WRITE = re.compile(r"\.(write_text|write_bytes)\(")
+SCRATCH_PATH = re.compile(r"\.ai-dev-team/|\.ai-dev-team['\"]|TEAM_WS|TEAM_STATE|['\"/]tmp/|^['\"]?/tmp/")
+SED_FANOUT = re.compile(
+    r"\bxargs\b[^|;&\n]*\bsed\s[^|;&\n]*(-[A-Za-z]*i|--in-place)"
+    r"|-exec(dir)?\s+sed\s[^;\n]*(-[A-Za-z]*i|--in-place)"
+    r"|\bfor\s+\w+\s+in\b[^\n]*?;?\s*do\b[^\n]*?\bsed\s[^|;&\n]*(-[A-Za-z]*i|--in-place)", re.S)
+WRITE_REASON = (
+    "ai-dev-team guard (COST-8): an inline node or python script that writes project files, or `sed -i` over several "
+    "files, is not allowed. Use the Edit tool (all changes to one file in one pass), `perl -pi -e` for one substitution "
+    "across many files, or `git apply` with a unified diff; `sed -i` on one file stays allowed; a script only for real "
+    "logic, saved as a file under $TEAM_WS. Inline scripts may write only under .ai-dev-team/, $TEAM_WS, $TEAM_STATE "
+    "or /tmp/.")
+
+
+def _resolve(expr, script):
+    """The text of a written path: the expression, plus the right side of a simple `name = ...` assignment."""
+    expr = expr.strip()
+    if re.fullmatch(r"[A-Za-z_]\w*", expr):
+        match = re.search(r"(?m)(?:^|[;\s])" + re.escape(expr) + r"\s*=\s*([^\n;]+)", script)
+        return match.group(1) if match else ''
+    return expr
+
+
+def py_write_denied(command):
+    """A python heredoc or `python3 -c` that writes a file outside the team and scratch folders."""
+    if not PY_INLINE.search(command):
+        return False
+    targets = []
+    for match in PY_OPEN_WRITE.finditer(command):
+        if set(match.group('mode')) & set('wax+'):
+            targets.append(match.group('path'))
+    for match in PY_METHOD_OPEN.finditer(command):
+        if set(match.group('mode')) & set('wax+'):
+            targets.append(match.group(1))
+    receivers = [m.group(1) for m in PY_METHOD_WRITE.finditer(command)]
+    if len(receivers) < len(PY_ANY_METHOD_WRITE.findall(command)):
+        return True  # a write_text / write_bytes whose path cannot be read
+    targets += receivers
+    return any(not SCRATCH_PATH.search(_resolve(t, command)) for t in targets)
+
+
+def _sed_files(tokens):
+    """Files named by one `sed` call (tokens after `sed`), or None when it is not in-place."""
+    in_place, script_given, rest, i = False, False, [], 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok == '--':
+            rest += tokens[i + 1:]
+            break
+        if tok.startswith('--'):
+            if tok.startswith('--in-place'):
+                in_place = True
+            elif tok in ('--expression', '--file'):
+                script_given, i = True, i + 1
+            elif tok.startswith(('--expression=', '--file=')):
+                script_given = True
+        elif tok.startswith('-') and len(tok) > 1:
+            flags = tok[1:]
+            pos_i = flags.find('i')
+            if pos_i != -1:
+                in_place = True
+                flags = flags[:pos_i]  # GNU sed: the rest of the cluster is the backup suffix
+            if 'e' in flags or 'f' in flags:
+                script_given = True
+                if flags.endswith(('e', 'f')):
+                    i += 1
+        else:
+            rest.append(tok)
+        i += 1
+    if not in_place:
+        return None
+    return rest if script_given else rest[1:]
+
+
+def sed_fanout_denied(command):
+    """`sed -i` over two or more files, a glob, a command substitution, xargs, find -exec or a loop."""
+    if SED_FANOUT.search(command):
+        return True
+    for line in command.split('\n'):
+        if not re.search(r"\bsed\b", line):
+            continue
+        line = re.sub(r"\$\([^()]*\)|`[^`]*`", ' __SUBST__ ', line)
+        try:
+            lexer = shlex.shlex(line, posix=True, punctuation_chars=';&|()<>')
+            lexer.whitespace_split = True
+            tokens = list(lexer)
+        except ValueError:
+            continue
+        segment = []
+        for tok in tokens + [';']:
+            if tok and set(tok) <= set(';&|()<>'):
+                if segment and segment[-1].isdigit() and set(tok) & set('<>'):
+                    segment.pop()  # the file descriptor of a redirect such as 2>/dev/null
+                if segment and os.path.basename(segment[0]) == 'sed':
+                    files = _sed_files(segment[1:])
+                    if files is not None and (len(files) >= 2 or any(
+                            '__SUBST__' in f or re.search(r"[*?\[]", f) for f in files)):
+                        return True
+                segment = []
+            else:
+                segment.append(tok)
+    return False
+
+
+def inline_write_denied(data):
+    """Agent edits through inline node / python scripts or a fanned-out `sed -i` (COST-8)."""
+    command = (data.get('tool_input') or {}).get('command') or ''
+    if NODE_EVAL.search(command) and NODE_WRITES.search(command):
+        return True
+    return py_write_denied(command) or sed_fanout_denied(command)
+
+
 def substitution_denied(data):
     """A shell write into the team files that still expands a backtick (board pasted with command output)."""
     command = (data.get('tool_input') or {}).get('command') or ''
@@ -240,6 +362,9 @@ def main():
         return
     if agent and tool == 'Bash' and retype_denied(data):
         deny(RETYPE_REASON)
+        return
+    if agent and tool == 'Bash' and inline_write_denied(data):
+        deny(WRITE_REASON)
         return
     if agent and tool in ('Bash', 'Write') and extra_script_denied(data):
         deny(SCRIPT_REASON)

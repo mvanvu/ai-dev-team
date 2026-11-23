@@ -2,7 +2,7 @@
 // Layout overflow check and screenshot sweep for the ai-dev-team rules COMPACT-1 (no horizontal
 // page scroll), COMPACT-2 (nothing sticks out of the viewport, no text clipped without an
 // ellipsis), REAL-10 / REAL-11 (default scrollbars, wasted space, with --scrollbars and --empty), COMPACT-7 (horizontal scrollers draw no scrollbar on phones), COMPACT-9 (touch targets on
-// phones, with --touch) and the COST sweep
+// phones, with --touch), WCAG 1.4.11 non-text contrast (with --contrast) and the COST sweep
 // (every width x every theme in one browser launch, one contact sheet per url).
 //
 // Usage: node $TEAM_BIN/overflow-check.mjs [options] <url> [<url>...]
@@ -19,6 +19,13 @@
 //                      px above its neighbours' (COMPACT-10), and empty spacer blocks taller than px (REAL-11)
 //   --scrollbars       report scroll containers, the page included, that keep the browser's default scrollbar
 //                      (scrollbar-width and scrollbar-color both auto) (REAL-10)
+//   --contrast         report boundary-defining elements (form controls, buttons, role=button/checkbox/radio/tab,
+//                      cards / tiles / chips / pills / badges / tags by class name, anything with a visible border)
+//                      whose edge is below 3:1 against the background behind it (WCAG 1.4.11 non-text contrast):
+//                      the best of border vs parent background and own background vs parent background counts;
+//                      rgba is composited over what is behind it; disabled controls are exempt; a control with
+//                      no border, no fill, no text and no icon is reported as invisible; an element over a
+//                      background image is skipped. With --sheet, offenders get a dashed magenta outline
 //   --shots <dir>      save a full-page screenshot per url / width / theme / scale, and write
 //                      <dir>/build-id.txt from `rule-checks.sh build-id` beside this script
 //   --sheet            with --shots: also write <dir>/<url>-sheet.png, every width x theme of that url on one image
@@ -55,13 +62,15 @@ function viewportFor(width) {
 }
 
 // Runs inside the page. Must stay self-contained: it is serialized by page.evaluate.
-// Takes the --allow selectors, or { allow, touch, empty, scrollbars } to add the touch-target, empty-space and
-// scrollbar probes.
+// Takes the --allow selectors, or { allow, touch, empty, scrollbars, contrast } to add the touch-target,
+// empty-space, scrollbar and non-text contrast probes. The contrast probe marks its offenders with the
+// data-oc-contrast attribute (cleared on every call) so a caller can outline them in a screenshot.
 export function findOverflow(arg = []) {
   const allow = Array.isArray(arg) ? arg : (arg.allow || [])
   const touch = Array.isArray(arg) ? 0 : (arg.touch || 0)
   const empty = Array.isArray(arg) ? 0 : (arg.empty || 0)
   const scrollbars = Array.isArray(arg) ? false : Boolean(arg.scrollbars)
+  const contrast = Array.isArray(arg) ? false : Boolean(arg.contrast)
   // The layout viewport width: on phones window.innerWidth grows when content is too wide
   // (the page zooms out to fit), so it cannot be used to detect the overflow that caused it.
   const vw = document.documentElement.clientWidth
@@ -253,6 +262,95 @@ export function findOverflow(arg = []) {
       }
     }
   }
+  if (contrast) {
+    for (const el of document.querySelectorAll('[data-oc-contrast]')) el.removeAttribute('data-oc-contrast')
+    // Colours as [r, g, b, a] (0-255, alpha 0-1). Computed colours are usually rgb()/rgba(); anything else
+    // (color(), oklch()) is converted by painting it on a 1x1 canvas.
+    const colorCache = new Map()
+    let ctx = null
+    const parseColor = (value) => {
+      if (colorCache.has(value)) return colorCache.get(value)
+      let out = null
+      const m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/.exec(value)
+      if (m) {
+        const a = m[4] === undefined ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : parseFloat(m[4])
+        out = [Number(m[1]), Number(m[2]), Number(m[3]), a]
+      } else {
+        ctx = ctx || Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true })
+        ctx.clearRect(0, 0, 1, 1)
+        ctx.fillStyle = '#000'
+        ctx.fillStyle = value
+        ctx.fillRect(0, 0, 1, 1)
+        const d = ctx.getImageData(0, 0, 1, 1).data
+        out = [d[0], d[1], d[2], d[3] / 255]
+      }
+      colorCache.set(value, out)
+      return out
+    }
+    const over = (top, bottom) => {
+      const a = top[3]
+      return [0, 1, 2].map((k) => top[k] * a + bottom[k] * (1 - a)).concat(1)
+    }
+    const channel = (v) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 }
+    const luminance = (c) => 0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2])
+    const ratio = (x, y) => { const [hi, lo] = [luminance(x), luminance(y)].sort((p, q) => q - p); return (hi + 0.05) / (lo + 0.05) }
+    // The opaque colour behind an element: ancestors' backgrounds composited bottom-up over white.
+    // null when an ancestor paints a background image (the colour behind is unknown).
+    const behind = (el) => {
+      const layers = []
+      for (let node = el.parentElement; node; node = node.parentElement) {
+        const cs = getComputedStyle(node)
+        if (cs.backgroundImage !== 'none') return null
+        const c = parseColor(cs.backgroundColor)
+        if (c[3] > 0) layers.push(c)
+        if (c[3] >= 1) break
+      }
+      let base = [255, 255, 255, 1]
+      for (let i = layers.length - 1; i >= 0; i--) base = over(layers[i], base)
+      return base
+    }
+    const controlSel = 'input:not([type=hidden]), select, textarea, button, [role=button], [role=checkbox], [role=radio], [role=tab]'
+    const shapeClass = /(^|[-_])(card|tile|chip|pill|badge|tag)s?(--[\w-]+)?$/i
+    const iconSel = 'svg, img, picture, canvas, i, [class*=icon], [data-icon]'
+    const sides = ['Top', 'Right', 'Bottom', 'Left']
+    for (const el of document.querySelectorAll('body *')) {
+      const cs = getComputedStyle(el)
+      const borders = sides.map((s) => ({ width: parseFloat(cs[`border${s}Width`]) || 0, style: cs[`border${s}Style`], color: parseColor(cs[`border${s}Color`]) }))
+        .filter((b) => b.width >= 1 && b.style !== 'none' && b.style !== 'hidden' && b.color[3] > 0)
+      const isControl = el.matches(controlSel)
+      const shaped = typeof el.className === 'string' && el.className.split(/\s+/).some((t) => shapeClass.test(t))
+      if (!isControl && !shaped && !borders.length) continue
+      const rect = el.getBoundingClientRect()
+      if (rect.width < 1 || rect.height < 1 || ignored(el) || el.closest('[hidden], [disabled], [aria-disabled=true]')) continue
+      if (el.disabled) continue
+      // Native checkboxes, radios, ranges and pickers drawn by the browser are not styled by the page.
+      if (el.tagName === 'INPUT' && /^(checkbox|radio|range|color|file|image|submit|reset|button)$/.test(el.type) && cs.appearance !== 'none' && !borders.length) continue
+      if (cs.backgroundImage !== 'none') continue
+      const back = behind(el)
+      if (!back) continue
+      const bg = parseColor(cs.backgroundColor)
+      const fill = bg[3] > 0 ? over(bg, back) : null
+      const scores = borders.map((b) => ratio(over(b.color, fill || back), back))
+      if (fill) scores.push(ratio(fill, back))
+      if (!scores.length) {
+        // No border and no fill: nothing draws a boundary. Only an interactive element that shows neither
+        // text nor an icon is a defect (nothing tells the user it is there); text-only buttons and links pass.
+        const text = (el.textContent || '').trim() || (el.value && el.tagName === 'INPUT' ? String(el.value).trim() : '') || el.getAttribute('placeholder')
+        const icon = el.matches(iconSel) || el.querySelector(iconSel)
+          || ['::before', '::after'].some((p) => !['none', 'normal'].includes(getComputedStyle(el, p).content))
+        if (isControl && !text && !icon) {
+          el.setAttribute('data-oc-contrast', '')
+          offenders.push({ rule: 'WCAG-1.4.11', kind: 'invisible-control', el: describe(el) })
+        }
+        continue
+      }
+      const best = Math.max(...scores)
+      if (best < 3) {
+        el.setAttribute('data-oc-contrast', '')
+        offenders.push({ rule: 'WCAG-1.4.11', kind: `non-text-contrast-${best.toFixed(2)}`, el: describe(el) })
+      }
+    }
+  }
   const pageScroll = document.documentElement.scrollWidth > vw
   return { pageScroll, scrollWidth: document.documentElement.scrollWidth, viewport: vw, offenders }
 }
@@ -260,7 +358,7 @@ export function findOverflow(arg = []) {
 function parseArgs(argv) {
   const options = {
     widths: [360, 390], themes: ['light'], themeSet: null, scale: 1.3, allow: [],
-    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false, touch: 0, empty: 0, scrollbars: false,
+    shots: null, sheet: false, storage: null, wait: 300, ready: null, urls: [], init: [], verbose: false, touch: 0, empty: 0, scrollbars: false, contrast: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -273,6 +371,7 @@ function parseArgs(argv) {
     else if (arg === '--touch') options.touch = Number(argv[++i])
     else if (arg === '--empty') options.empty = Number(argv[++i])
     else if (arg === '--scrollbars') options.scrollbars = true
+    else if (arg === '--contrast') options.contrast = true
     else if (arg === '--shots') options.shots = argv[++i]
     else if (arg === '--storage') options.storage = argv[++i]
     else if (arg === '--init') options.init.push(argv[++i])
@@ -352,7 +451,7 @@ function writeBuildId(dir) {
 async function main() {
   const options = parseArgs(process.argv.slice(2))
   if (!options) {
-    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--touch px] [--empty px] [--scrollbars] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
+    console.error('usage: overflow-check.mjs [--widths list] [--themes list] [--theme-set js] [--scale n] [--allow selector] [--touch px] [--empty px] [--scrollbars] [--contrast] [--shots dir [--sheet]] [--storage file] [--init file] [--wait ms] [--ready selector] [--verbose] <url>...')
     process.exit(64)
   }
   const chromium = loadChromium()
@@ -402,12 +501,23 @@ async function main() {
             // Approximates the OS font scale for rem-based layouts.
             await page.evaluate((s) => { document.documentElement.style.fontSize = s === 1 ? '' : `${16 * s}px` }, scale)
             await page.waitForTimeout(options.wait)
-            const result = await page.evaluate(findOverflow, { allow: options.allow, touch: phone ? options.touch : 0, empty: options.empty, scrollbars: options.scrollbars })
+            const result = await page.evaluate(findOverflow, { allow: options.allow, touch: phone ? options.touch : 0, empty: options.empty, scrollbars: options.scrollbars, contrast: options.contrast })
             const label = `${url} @ ${width}px ${theme} scale ${scale}`
             const cell = `${width} ${theme}${scale === 1 ? '' : ` x${scale}`}`
             if (options.shots) {
               const file = path.join(options.shots, `${shotName(url)}-${width}-${theme}-x${scale}.png`)
+              // Contrast offenders get a dashed outline in the shot (and so in the sheet), removed right after.
+              const outline = options.contrast && result.offenders.some((o) => o.rule === 'WCAG-1.4.11')
+              if (outline) {
+                await page.evaluate(() => {
+                  const style = document.createElement('style')
+                  style.id = '__oc_contrast_outline'
+                  style.textContent = '[data-oc-contrast]{outline:3px dashed #f0f !important;outline-offset:2px !important}'
+                  document.head.append(style)
+                })
+              }
               await page.screenshot({ path: file, fullPage: true })
+              if (outline) await page.evaluate(() => document.getElementById('__oc_contrast_outline')?.remove())
               if (scale === 1) {
                 if (!sheetCells.has(url)) sheetCells.set(url, [])
                 sheetCells.get(url).push({ width, theme, file, ok: !result.pageScroll && !result.offenders.length })

@@ -37,7 +37,13 @@
 #                           not a check: test files that import or name a changed source file of task <id> (or of
 #                           the files given after --), found by the file's name stem across every test file of the
 #                           repository, not only the feature's test folder (COST-10); the developer runs this set
-#                           and the notes show the list
+#                           and the notes show the list; with no task base recorded for <id> it warns on stderr
+#                           and uses the uncommitted changes against HEAD (git diff HEAD + untracked files)
+#   guard-coverage [profile]
+#                           BASE-25: meta tests (test files that walk or glob the source tree, or are named like
+#                           *guard*, *no_raw*, *lint*_test*, *convention*) that no line of the profile's
+#                           "## Guard map" or guard command names by path or basename; profile defaults to
+#                           $TEAM_STATE/project-profile.md, else .ai-dev-team/project-profile.md
 #   review-coverage <id> <review file>
 #                           BASE (verdict gate): changed files of task <id> that the review's "## Files read" table
 #                           does not mark read (rows marked part or grep only do not count)
@@ -320,7 +326,12 @@ task_diff() {
 related_tests() {
   local files f stem tests
   if [ "${1:-}" = "--" ]; then shift; files=$(printf '%s\n' "$@")
-  elif [ -n "${1:-}" ]; then files=$(task_diff "$1" --name-only) || return 64
+  elif [ -n "${1:-}" ] && [ -f ".ai-dev-team/workspace/.task-base/$1" ]; then files=$(task_diff "$1" --name-only) || return 64
+  elif [ -n "${1:-}" ]; then
+    git rev-parse --git-dir >/dev/null 2>&1 || { echo "related-tests: not a git repository and no task base for $1" >&2; return 64; }
+    # On stderr: written before the sorted list, and the list on stdout stays file paths only.
+    echo "related-tests: no task base for $1 — using uncommitted changes against HEAD" >&2
+    files=$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard; } | grep -v '^\.ai-dev-team/' | sort -u)
   else echo "usage: $0 related-tests <task id> | -- <files...>" >&2; return 64; fi
   tests=$( { git ls-files; git ls-files --others --exclude-standard; } 2>/dev/null |
     grep -v '^\.ai-dev-team/' |
@@ -339,6 +350,60 @@ related_tests() {
 $files
 EOF_FILES
 }
+
+# Test files of the repository (tracked + untracked, or every file outside git), team and build folders left out.
+test_files() {
+  local all
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    all=$( { git ls-files; git ls-files --others --exclude-standard; } 2>/dev/null)
+  else
+    all=$(find . \( -name node_modules -o -name vendor -o -name .git -o -name dist -o -name build -o -name coverage \
+      -o -name .dart_tool -o -name .ai-dev-team -o -name Pods \) -prune -o -type f -print 2>/dev/null | sed 's|^\./||')
+  fi
+  printf '%s\n' "$all" |
+    grep -vE '(^|/)(\.ai-dev-team|node_modules|vendor|dist|build|coverage|\.dart_tool|Pods)/' |
+    grep -E '(^|/)(test|tests|spec|__tests__|integration_test)/|_test\.[a-z]+$|\.(test|spec)\.[a-z]+$|Test\.[a-z]+$|(^|/)test_[^/]+\.py$' |
+    sort -u
+}
+
+guard_coverage() {
+  # Meta tests (tests that scan the source tree instead of exercising code) that neither the profile's
+  # "## Guard map" nor its guard command names, by path or basename (BASE-25).
+  local profile="${1:-}" text tests t base hits="" count=0 total=0
+  if [ -z "$profile" ]; then
+    if [ -n "${TEAM_STATE:-}" ] && [ -f "$TEAM_STATE/project-profile.md" ]; then profile="$TEAM_STATE/project-profile.md"
+    else profile=.ai-dev-team/project-profile.md; fi
+  fi
+  [ -f "$profile" ] || { echo "usage: $0 guard-coverage [profile]  (no profile at $profile)" >&2; return 64; }
+  # Guard text: the "## Guard map" section, a front-matter "guard:" line and Commands rows whose purpose starts with guard.
+  text=$(awk '
+    /^## Guard map/ { g = 1; print; next }
+    /^## / { g = 0 }
+    g { print; next }
+    /^[[:space:]]*guard[[:space:]]*:/ { print; next }
+    /^\|[[:space:]]*`?guard/ { print }' "$profile")
+  tests=$(test_files)
+  local walkers='listSync\([^)]*recursive|Directory\([^)]*\)\.(list|listSync)\(|readdirSync|readdir\(|globSync|fast-glob|\bglob\(|os\.walk\(|\.rglob\(|glob\.glob\(|RecursiveDirectoryIterator|scandir\(|filepath\.Walk|WalkDir|Files\.walk\('
+  while IFS= read -r t; do
+    [ -n "$t" ] && [ -f "$t" ] || continue
+    base=$(basename "$t")
+    if ! printf '%s\n' "$base" | grep -qiE 'no_raw|guard|lint.*_test|convention' &&
+       ! grep -qE "$walkers" "$t" 2>/dev/null; then continue; fi
+    total=$((total + 1))
+    printf '%s\n' "$text" | grep -qF -e "$t" -e "$base" && continue
+    hits="${hits}guard-coverage uncovered: $t"$'\n'
+    count=$((count + 1))
+  done <<EOF_T
+$tests
+EOF_T
+  printf '%s' "$hits"
+  if [ "$count" -gt 0 ]; then
+    echo "guard-coverage: $count of $total meta test(s) not named in the Guard map or guard command of $profile"
+    return 1
+  fi
+  echo "guard-coverage ok: $total meta test(s), all named in $profile"
+}
+
 
 review_coverage() {
   # A changed file is covered when the review's "## Files read" table has a row whose first cell is its path
@@ -366,6 +431,7 @@ EOF
 
 case "$check" in
   arch) check_arch ${@+"$@"} ;;
+  guard-coverage) guard_coverage ${@+"$@"} ;;
   review-coverage) review_coverage ${@+"$@"} ;;
   related-tests) related_tests ${@+"$@"} | sort -u ;;
   list-storage) check_list_storage ${@+"$@"} ;;
@@ -393,7 +459,7 @@ case "$check" in
     exit "$status"
     ;;
   *)
-    sed -n '6,38p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '6,50p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

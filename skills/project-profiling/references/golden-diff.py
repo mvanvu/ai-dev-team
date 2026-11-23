@@ -3,6 +3,7 @@
 
 Usage (from the project root):
   python3 $TEAM_BIN/golden-diff.py --base <rev> [--out <dir>] [--expect-unchanged <glob>]... [--] [paths...]
+  python3 $TEAM_BIN/golden-diff.py --pair <reference_dir> [--pair-map <file>] [--out <dir>] <build_dir>
 
 Without paths, every changed *.png between <rev> and the working tree is compared. For each image it
 prints the share of changed pixels, whether the size changed, and the bounding box of the change. Images
@@ -20,6 +21,17 @@ Flags in the summary:
 Uses Pillow when the machine has it (fast); otherwise the standard library only (zlib PNG reader and writer,
 8-bit and 16-bit non-interlaced PNGs, about a second per phone-sized image).
 Exit: 0 nothing flagged, 1 flags found, 64 usage error.
+
+Pair mode (--pair): compares built screenshots (<build_dir>) with reference images (<reference_dir>: the
+approved mockup or design-source screenshots). Files are matched by file-name stem, or by a --pair-map file
+with one `build_stem reference_stem` per line (blank lines and # comments ignored; unmapped stems still match
+by name). Each pair gets one row on its screen's contact sheet in <out> (default
+.ai-dev-team/workspace/qa-artifacts/golden-pair/): reference left, build right, both scaled to the same
+height. For each pair it prints both names, both sizes and a coarse difference score (mean absolute
+difference in percent after scaling both to 64 px high, greyscale; 0 = same, a high score means look first),
+then the unmatched files of both sides. Pair mode never decides pass or fail: the reviewer opens the sheets.
+PNG only without Pillow (nearest-neighbour scaling); with Pillow also JPEG and WebP.
+Exit: 0, or 64 when a directory is missing or empty or the map cannot be read.
 """
 import argparse
 import fnmatch
@@ -219,13 +231,150 @@ def git(*args):
     return subprocess.run(['git', *args], capture_output=True, check=False)
 
 
+PAIR_H = 640
+PAIR_MAX_W = 900
+SCORE_H = 64
+
+
+def scaled(img, width, height):
+    """Nearest-neighbour scale of a read_png image to rows of flattened RGB tuples."""
+    w, h, px = img
+    return [[flatten(px[min(h - 1, y * h // height)][min(w - 1, x * w // width)]) for x in range(width)]
+            for y in range(height)]
+
+
+def pair_size(a, b):
+    """Common row height and each image's width at it, capped so the wider side fits PAIR_MAX_W."""
+    height = min(PAIR_H, max(a[1], b[1]))
+    widths = [max(1, round(w * height / h)) for w, h in (a, b)]
+    if max(widths) > PAIR_MAX_W:
+        height = max(1, height * PAIR_MAX_W // max(widths))
+        widths = [max(1, round(w * height / h)) for w, h in (a, b)]
+    return height, widths
+
+
+def pair_score(ref, build):
+    """Mean absolute greyscale difference (percent) with both scaled to SCORE_H high at the build's aspect."""
+    bw, bh = (build.size if Image else build[:2])
+    width = max(1, round(bw * SCORE_H / bh))
+    if Image:
+        def grey(img):
+            flat = Image.new('RGB', img.size, (255, 255, 255)); flat.paste(img, (0, 0), img)
+            return list(flat.convert('L').resize((width, SCORE_H), Image.BOX).getdata())
+        ga, gb = grey(ref), grey(build)
+    else:
+        def grey(img):
+            return [(299 * r + 587 * g + 114 * b) // 1000 for row in scaled(img, width, SCORE_H) for r, g, b in row]
+        ga, gb = grey(ref), grey(build)
+    return sum(abs(x - y) for x, y in zip(ga, gb)) * 100.0 / (255 * len(ga))
+
+
+def pair_mode(args):
+    build_dir, ref_dir = args.paths[0] if len(args.paths) == 1 else None, args.pair
+    if not build_dir or not os.path.isdir(build_dir) or not os.path.isdir(ref_dir):
+        print('golden-diff: --pair needs an existing <reference_dir> and exactly one existing <build_dir>', file=sys.stderr)
+        return 64
+    exts = ('.png', '.jpg', '.jpeg', '.webp') if Image else ('.png',)
+
+    def listing(folder):
+        found = {}
+        for name in sorted(os.listdir(folder)):
+            stem, ext = os.path.splitext(name)
+            if ext.lower() in exts and os.path.isfile(os.path.join(folder, name)):
+                found.setdefault(stem, os.path.join(folder, name))
+            elif ext.lower() in ('.jpg', '.jpeg', '.webp'):
+                print(f'SKIP {os.path.join(folder, name)}: not a PNG and Pillow is not installed')
+        return found
+
+    builds, refs = listing(build_dir), listing(ref_dir)
+    if not builds or not refs:
+        print(f'golden-diff: no images in {build_dir if not builds else ref_dir}', file=sys.stderr)
+        return 64
+    mapping = {}
+    if args.pair_map:
+        try:
+            for line in open(args.pair_map, encoding='utf-8'):
+                parts = line.split('#', 1)[0].split()
+                if len(parts) == 2:
+                    mapping[parts[0]] = parts[1]
+                elif parts:
+                    print(f'golden-diff: bad --pair-map line: {line.rstrip()}', file=sys.stderr)
+                    return 64
+        except OSError as exc:
+            print(f'golden-diff: cannot read --pair-map: {exc}', file=sys.stderr)
+            return 64
+    pairs, used = [], set()
+    for stem, path in builds.items():
+        ref_stem = mapping.get(stem, stem)
+        if ref_stem in refs:
+            pairs.append((stem, path, refs[ref_stem]))
+            used.add(ref_stem)
+    load = pil_load if Image else read_png
+    os.makedirs(args.out, exist_ok=True)
+    groups = {}
+    for stem, bpath, rpath in pairs:
+        try:
+            ref, build = load(open(rpath, 'rb').read()), load(open(bpath, 'rb').read())
+        except (ValueError, KeyError, OSError, zlib.error) as exc:
+            print(f'SKIP {bpath} / {rpath}: {exc}')
+            continue
+        rs, bs = (ref.size, build.size) if Image else (ref[:2], build[:2])
+        score = pair_score(ref, build)
+        aspect = '  ASPECT' if abs(rs[0] / rs[1] - bs[0] / bs[1]) > 0.02 else ''
+        print(f'{score:6.2f}  ref {rpath} {rs[0]}x{rs[1]}  build {bpath} {bs[0]}x{bs[1]}{aspect}')
+        groups.setdefault(group_of(stem), []).append((ref, build, rs, bs))
+    gap = 6
+    for group, items in sorted(groups.items()):
+        sizes = [pair_size(rs, bs) for _, _, rs, bs in items]
+        width = max(w[0] + w[1] for _, w in sizes) + 3 * gap
+        sheet = os.path.join(args.out, re.sub(r'[^\w.-]+', '_', group.strip('/')) + '-pair.png')
+        if Image:
+            img = Image.new('RGB', (width, sum(h + gap for h, _ in sizes) + gap), (255, 255, 255))
+            y = gap
+            for (ref, build, _, _), (h, (rw, bw)) in zip(items, sizes):
+                for x, src, w in ((gap, ref, rw), (2 * gap + rw, build, bw)):
+                    flat = Image.new('RGB', src.size, (255, 255, 255)); flat.paste(src, (0, 0), src)
+                    img.paste(flat.resize((w, h), Image.LANCZOS), (x, y))
+                y += h + gap
+            img.save(sheet)
+        else:
+            white = (255, 255, 255)
+            rows = [[white] * width for _ in range(gap)]
+            for (ref, build, _, _), (h, (rw, bw)) in zip(items, sizes):
+                left, right = scaled(ref, rw, h), scaled(build, bw, h)
+                for y in range(h):
+                    line = [white] * gap + left[y] + [white] * gap + right[y]
+                    rows.append(line + [white] * (width - len(line)))
+                rows.extend([[white] * width for _ in range(gap)])
+            write_png(sheet, width, len(rows), rows)
+        print(f'sheet {sheet} ({len(items)} pairs, reference left, build right)')
+    for stem in builds:
+        if mapping.get(stem, stem) not in refs:
+            print(f'unmatched build {builds[stem]}')
+    for stem in refs:
+        if stem not in used:
+            print(f'unmatched reference {refs[stem]}')
+    print(f'summary: {len(pairs)} pairs, {len(groups)} sheets, {len(builds) - len(pairs)} unmatched build, '
+          f'{len(refs) - len(used)} unmatched reference ({"Pillow" if Image else "standard library"})')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(add_help=True)
-    ap.add_argument('--base', required=True)
-    ap.add_argument('--out', default='.ai-dev-team/workspace/qa-artifacts/golden-diff')
+    ap.add_argument('--base')
+    ap.add_argument('--out')
     ap.add_argument('--expect-unchanged', action='append', default=[])
+    ap.add_argument('--pair', metavar='REFERENCE_DIR')
+    ap.add_argument('--pair-map', metavar='FILE')
     ap.add_argument('paths', nargs='*')
     args = ap.parse_args()
+    if args.pair:
+        args.out = args.out or '.ai-dev-team/workspace/qa-artifacts/golden-pair'
+        return pair_mode(args)
+    if not args.base:
+        print('golden-diff: --base <rev> or --pair <reference_dir> is required', file=sys.stderr)
+        return 64
+    args.out = args.out or '.ai-dev-team/workspace/qa-artifacts/golden-diff'
     if git('rev-parse', '--verify', '--quiet', args.base).returncode:
         print(f'golden-diff: unknown base {args.base}', file=sys.stderr)
         return 64
