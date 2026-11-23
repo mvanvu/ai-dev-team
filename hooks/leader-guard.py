@@ -57,6 +57,7 @@ SCRIPT_REASON = (
     "written in the last 90 minutes. Extend one of them to take a list of flows or states (one browser launch, one "
     "result line per flow) and run it with arguments, instead of writing a new script and launching a browser per check.")
 STAGE_ALL = re.compile(r"\bgit\s+add\s+(-A\b|--all\b|\.(\s|$)|-u\b)")
+STAGE_STATUS = re.compile(r"\bgit\s+(status|diff\s+--name-only|ls-files)\b.*(\bgit\s+add\s+[^\n]*--pathspec-from-file|\|\s*(xargs\s+)?git\s+add\b)", re.S)
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEAM_BIN = os.path.join(PLUGIN_ROOT, 'skills', 'project-profiling', 'references')
 REASON = (
@@ -138,7 +139,7 @@ def shared_tree_denied(data, agent):
 def stage_denied(data, root):
     """Leader `git add` of everything or of a folder: only a task's own files are staged (BASE-7)."""
     command = (data.get('tool_input') or {}).get('command') or ''
-    if STAGE_ALL.search(command):
+    if STAGE_ALL.search(command) or STAGE_STATUS.search(command):
         return True
     for match in re.finditer(r"\bgit\s+add\s+([^;&|\n]+)", command):
         for arg in match.group(1).split():
@@ -235,7 +236,9 @@ def main():
         return
     if tool == 'Bash' and stage_denied(data, root):
         deny("ai-dev-team leader guard: stage only the task's own files by name (BASE-7), never `git add -A`, "
-             "`git add .`, `-u` or a whole folder; other tasks' unreviewed changes would ride along.")
+             "`git add .`, `-u`, a whole folder or the whole `git status` list; other tasks' unreviewed changes would "
+             "ride along. List the task's files with `$TEAM_BIN/rule-checks.sh task-diff <id> --name-only` (or a worktree "
+             "task's branch diff) and stage that list.")
         return
     denied = bash_denied(data) if tool == 'Bash' else edit_denied(data, root)
     if denied:
