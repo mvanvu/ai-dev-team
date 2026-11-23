@@ -4,7 +4,7 @@ During a dev-team run the main session is the leader: it plans, briefs and talks
 change the project's files. This hook denies a leader tool call that would change a project file outside
 `.ai-dev-team/` and `.claude/`, or stage a whole folder. Agent calls (the input carries `agent_id`) may edit
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
-detach a process from the harness are denied for everyone, as are shell writes into the team files that still
+detach a process from the harness are denied for everyone, a leader spawn of a team agent without an explicit `model` is denied, as are shell writes into the team files that still
 expand a backtick. Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
 sessions that never loaded the dev-team skill are left alone. Any error lets the call through.
 
@@ -208,6 +208,18 @@ def extra_script_denied(data):
     return recent >= 2
 
 
+MODEL_REASON = (
+    "ai-dev-team leader guard: every spawn of a team agent passes `model` explicitly, taken from the Model per role "
+    "table (dev-team SKILL); an omitted model inherits the session's model instead of the task's.")
+
+
+def spawn_denied(data):
+    """A leader Agent call for an ai-dev-team agent without an explicit model."""
+    tool_input = data.get('tool_input') or {}
+    kind = str(tool_input.get('subagent_type') or '')
+    return kind.startswith('ai-dev-team:') and not tool_input.get('model')
+
+
 def deny(reason):
     print(json.dumps({'hookSpecificOutput': {
         'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', 'permissionDecisionReason': reason}}))
@@ -233,6 +245,10 @@ def main():
         deny(SCRIPT_REASON)
         return
     if agent or not leading_run(data):
+        return
+    if tool == 'Agent':
+        if spawn_denied(data):
+            deny(MODEL_REASON)
         return
     if tool == 'Bash' and stage_denied(data, root):
         deny("ai-dev-team leader guard: stage only the task's own files by name (BASE-7), never `git add -A`, "
