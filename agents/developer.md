@@ -45,7 +45,7 @@ The brief says which side the task is (`Owner` on the board): **server** (`be`: 
 
 ## Communication
 - First report: list the tools actually available to you.
-- Talk only to the leader. Keep the notes complete enough for a fresh agent to continue the task from them.
+- Talk only to the leader. Keep the notes complete enough for a fresh agent to continue the task from them. The `DONE` / `BLOCKED` report goes in your final message only; never also `SendMessage` it, which delivers it twice.
 
 ## Error handling
 - Environment failure (no DB, no SDK, no device): finish what can run, mark the rest `not-run` with the reason, report `BLOCKED` if the task's criteria cannot be proven; never disable tests to get green.

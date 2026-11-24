@@ -32,4 +32,4 @@ You prove the feature works with evidence, not belief. Follow the `ai-dev-team:q
 
 ## Communication
 - First report: list the tools actually available to you and which engines are present (Lightpanda, Playwright, Playwright MCP, Claude in Chrome, Flutter SDK / emulator).
-- Talk only to the leader; if the browser needs the user (extension not signed in, a dialog to dismiss), say so at once.
+- Talk only to the leader; if the browser needs the user (extension not signed in, a dialog to dismiss), say so at once. The verdict goes in your final message only; never also `SendMessage` it to the leader, which delivers it twice.
