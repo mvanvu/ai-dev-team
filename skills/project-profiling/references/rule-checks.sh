@@ -31,6 +31,10 @@
 #                           .ai-dev-team/ left out) as the start of task <id>, in .ai-dev-team/workspace/.task-base/;
 #                           uses a copy of the index, so the real index and the working tree are untouched
 #   task-diff <id> [git diff options] [-- paths]
+#   agent-context [project dir] [minutes]
+#                           COST-16   context size (input + cache tokens of the last turn) and turn count of every
+#                           agent of the newest leader session of the project (default: current dir) whose
+#                           transcript changed in the last <minutes> (default 30); `HANDOVER` past 300k
 #                           not a check: the diff from task <id>'s start to the tree now (new untracked files
 #                           included); limit it to the task's files with `-- <paths>` when tasks run in parallel
 #   related-tests <id> | -- <files...>
@@ -315,6 +319,40 @@ task_base() {
   echo "task-base $id $tree"
 }
 
+agent_context() {
+  local dir="${1:-$PWD}" minutes="${2:-30}"
+  python3 - "$dir" "$minutes" <<'PY'
+import json, os, sys, time, glob
+d, minutes = os.path.abspath(sys.argv[1]), float(sys.argv[2])
+base = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR", "~/.claude"))
+proj = os.path.join(base, "projects", d.replace("/", "-").replace(".", "-"))
+sessions = sorted(glob.glob(proj + "/*.jsonl"), key=os.path.getmtime)
+if not sessions:
+    print(f"agent-context: no sessions under {proj}"); sys.exit(64)
+sub = os.path.join(sessions[-1][:-6], "subagents")
+now, rows = time.time(), 0
+for f in sorted(glob.glob(sub + "/agent-*.jsonl"), key=os.path.getmtime):
+    if now - os.path.getmtime(f) > minutes * 60:
+        continue
+    ctx = turns = 0; desc = ""
+    meta = f[:-6] + ".meta.json"
+    if os.path.exists(meta):
+        try: desc = json.load(open(meta)).get("description", "")
+        except Exception: pass
+    for line in open(f):
+        try: m = json.loads(line).get("message") or {}
+        except Exception: continue
+        if isinstance(m, dict) and m.get("role") == "assistant" and m.get("usage"):
+            u = m["usage"]; turns += 1
+            ctx = u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+    flag = " HANDOVER" if ctx >= 300000 else ""
+    age = int((now - os.path.getmtime(f)) / 60)
+    print(f"agent-context {os.path.basename(f)[6:-6]} {ctx // 1000}k turns={turns} idle={age}m {desc}{flag}")
+    rows += 1
+print(f"agent-context summary: {rows} agent(s) active in the last {int(minutes)} min")
+PY
+}
+
 task_diff() {
   local id="${1:-}" dir=.ai-dev-team/workspace/.task-base base
   [ -n "$id" ] || { echo "usage: $0 task-diff <task id> [git diff options] [-- paths]" >&2; return 64; }
@@ -446,6 +484,7 @@ case "$check" in
   stray-team-files) stray_team_files ;;
   task-base) task_base ${@+"$@"} ;;
   task-diff) task_diff ${@+"$@"} ;;
+  agent-context) agent_context ${@+"$@"} ;;
   all)
     status=0
     check_arch || status=1
