@@ -59,6 +59,20 @@ SCRIPT_REASON = (
     "written in the last 90 minutes. Extend one of them to take a list of flows or states (one browser launch, one "
     "result line per flow) and run it with arguments, instead of writing a new script and launching a browser per check.")
 STAGE_ALL = re.compile(r"\bgit\s+add\s+(-A\b|--all\b|\.(\s|$)|-u\b)")
+STAGE_LIST = re.compile(r"\bgit\s+add\b[^;&|\n]*--pathspec-from-file|\bxargs\b[^|;&\n]*\bgit\s+add\b")
+GIT_GLOBAL = re.compile(r"\bgit((?:\s+(?:-C\s+\S+|-c\s+\S+|--git-dir(?:=|\s+)\S+|--work-tree(?:=|\s+)\S+|--no-pager|-P|--literal-pathspecs))+)(?=\s)")
+
+
+def strip_git_globals(command):
+    """`git -C dir add …` must match the same rules as `git add …`; returns the command and the last -C dir."""
+    cdir = None
+    for match in GIT_GLOBAL.finditer(command):
+        found = re.findall(r"-C\s+(\S+)", match.group(1))
+        if found:
+            cdir = found[-1].strip("'\"")
+    return GIT_GLOBAL.sub("git", command), cdir
+
+
 STAGE_STATUS = re.compile(r"\bgit\s+(status|diff\s+--name-only|ls-files)\b.*(\bgit\s+add\s+[^\n]*--pathspec-from-file|\|\s*(xargs\s+)?git\s+add\b)", re.S)
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEAM_BIN = os.path.join(PLUGIN_ROOT, 'skills', 'project-profiling', 'references')
@@ -132,7 +146,7 @@ def edit_denied(data, root):
 
 
 def shared_tree_denied(data, agent):
-    command = (data.get('tool_input') or {}).get('command') or ''
+    command, _ = strip_git_globals((data.get('tool_input') or {}).get('command') or '')
     if SHARED_TREE.search(command):
         return True
     return bool(agent and AGENT_GIT.search(command))
@@ -140,15 +154,17 @@ def shared_tree_denied(data, agent):
 
 def stage_denied(data, root):
     """Leader `git add` of everything or of a folder: only a task's own files are staged (BASE-7)."""
-    command = (data.get('tool_input') or {}).get('command') or ''
-    if STAGE_ALL.search(command) or STAGE_STATUS.search(command):
+    command, cdir = strip_git_globals((data.get('tool_input') or {}).get('command') or '')
+    if STAGE_ALL.search(command) or STAGE_STATUS.search(command) or STAGE_LIST.search(command):
         return True
+    base = os.path.join(data.get('cwd') or root, cdir) if cdir else (data.get('cwd') or root)
     for match in re.finditer(r"\bgit\s+add\s+([^;&|\n]+)", command):
         for arg in match.group(1).split():
-            if arg.startswith('-'):
+            if arg.startswith('-') or arg.startswith('$('):
                 continue
-            path = os.path.join(data.get('cwd') or root, arg)
-            if os.path.isdir(path) and os.path.relpath(os.path.abspath(path), root).split(os.sep, 1)[0] not in ALLOWED_DIRS:
+            path = os.path.join(base, arg)
+            rel = os.path.relpath(os.path.abspath(path), root)
+            if os.path.isdir(path) and (rel.startswith('..') or rel.split(os.sep, 1)[0] not in ALLOWED_DIRS):
                 return True
     return False
 
@@ -377,9 +393,10 @@ def main():
         return
     if tool == 'Bash' and stage_denied(data, root):
         deny("ai-dev-team leader guard: stage only the task's own files by name (BASE-7), never `git add -A`, "
-             "`git add .`, `-u`, a whole folder or the whole `git status` list; other tasks' unreviewed changes would "
-             "ride along. List the task's files with `$TEAM_BIN/rule-checks.sh task-diff <id> --name-only` (or a worktree "
-             "task's branch diff) and stage that list.")
+             "`git add .`, `-u`, a whole folder, the whole `git status` list, a `--pathspec-from-file` list or `xargs git add` "
+             "(also through `git -C <dir>` or a list built in an earlier call); other tasks' unreviewed changes would "
+             "ride along. Stage named files, or `git add -- $($TEAM_BIN/rule-checks.sh task-diff <id> --name-only)`. "
+             "Reaching a denied effect another way counts as resending the denied call (BASE-34).")
         return
     denied = bash_denied(data) if tool == 'Bash' else edit_denied(data, root)
     if denied:

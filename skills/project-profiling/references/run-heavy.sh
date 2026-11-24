@@ -26,8 +26,14 @@ if [ "$run_s" != "0" ] && command -v timeout >/dev/null 2>&1; then
 fi
 
 slots="${AI_DEV_TEAM_SLOTS:-}"
-if [ -z "$slots" ] && [ -f .ai-dev-team/local.md ]; then
-  slots=$(sed -n 's/^heavy_slots:[[:space:]]*\([0-9][0-9]*\).*/\1/p' .ai-dev-team/local.md | head -n 1)
+local_md=.ai-dev-team/local.md
+if [ ! -f "$local_md" ]; then
+  # a git worktree has no copy of the git-ignored local.md: read the main worktree's
+  common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  [ -n "$common" ] && local_md="$(dirname "$common")/.ai-dev-team/local.md"
+fi
+if [ -z "$slots" ] && [ -f "$local_md" ]; then
+  slots=$(sed -n 's/^heavy_slots:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$local_md" | head -n 1)
 fi
 if [ -z "$slots" ]; then
   threads=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)
