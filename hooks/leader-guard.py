@@ -2,7 +2,7 @@
 
 During a dev-team run the main session is the leader: it plans, briefs and talks to the user, while agents
 change the project's files. This hook denies a leader tool call that would change a project file outside
-`.ai-dev-team/` and `.claude/`, or stage a whole folder. Agent calls (the input carries `agent_id`) may edit
+`.ai-dev-team/` and `.claude/`, or stage a whole folder, or `cd` outside a subshell. Agent calls (the input carries `agent_id`) may edit
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
 detach a process from the harness are denied for everyone, a leader spawn of a team agent without an explicit `model` is denied, as are shell writes into the team files that still
 expand a backtick. Agents may not write project files through inline node / python scripts or run `sed -i` over
@@ -167,6 +167,21 @@ def stage_denied(data, root):
             if os.path.isdir(path) and (rel.startswith('..') or rel.split(os.sep, 1)[0] not in ALLOWED_DIRS):
                 return True
     return False
+
+
+LEADER_CD = re.compile(r'(?:^|&&|\|\||;|\n)\s*cd(?:\s|$)')
+CD_REASON = (
+    "ai-dev-team leader guard: the leader never `cd`s — its shell keeps the directory between calls and the "
+    "user's `!` commands run in it. Use absolute paths, `git -C <dir>`, a tool's own directory flag, or a "
+    "subshell `( cd <dir> && … )`.")
+
+
+def cd_denied(data):
+    """A leader `cd` outside a subshell changes the directory the user's commands run in."""
+    command = (data.get('tool_input') or {}).get('command') or ''
+    if command.lstrip().startswith('('):
+        return False
+    return bool(LEADER_CD.search(command))
 
 
 def bash_denied(data):
@@ -390,6 +405,9 @@ def main():
     if tool == 'Agent':
         if spawn_denied(data):
             deny(MODEL_REASON)
+        return
+    if tool == 'Bash' and cd_denied(data):
+        deny(CD_REASON)
         return
     if tool == 'Bash' and stage_denied(data, root):
         deny("ai-dev-team leader guard: stage only the task's own files by name (BASE-7), never `git add -A`, "
