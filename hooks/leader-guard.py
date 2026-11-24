@@ -97,6 +97,31 @@ def find_root(start):
         path = parent
 
 
+ABS_PATH = re.compile(r"(?<![\w.])(/[^\s'\"`;&|()<>]+)")
+
+
+def find_run_root(data):
+    """The run's root from the session directory, else from the paths the call names.
+
+    A session whose start directory was renamed or moved keeps the old path as its directory,
+    so the paths in the call are the only link to the workspace."""
+    root = find_root(data.get('cwd'))
+    if root:
+        return root
+    tool_input = data.get('tool_input') or {}
+    candidates = [tool_input.get('file_path') or '']
+    candidates += ABS_PATH.findall(tool_input.get('command') or '')
+    for path in candidates:
+        if path.startswith('/'):
+            start = path
+            while start and not os.path.isdir(start):
+                start = os.path.dirname(start)
+            root = find_root(start) if start else None
+            if root:
+                return root
+    return None
+
+
 def guard_off(root):
     try:
         with open(os.path.join(root, '.ai-dev-team', 'local.md'), encoding='utf-8') as fh:
@@ -380,7 +405,7 @@ def deny(reason):
 
 def main():
     data = json.load(sys.stdin)
-    root = find_root(data.get('cwd'))
+    root = find_run_root(data)
     if not root or guard_off(root):
         return
     agent = bool(data.get('agent_id'))
