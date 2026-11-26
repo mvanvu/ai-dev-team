@@ -20,7 +20,7 @@ The brief lists the task's rule packs. For `BASE` (except its self-attested rule
 2. **Edge cases** — empty, null, boundaries, duplicates, concurrency, partial failure, time zones.
 3. **Contract conformance** — request/response shapes, types, nullability and error codes match the design exactly.
 4. **Error handling** — errors are not swallowed; user-facing errors are meaningful; resources are released.
-5. **Tests** — critical logic has tests; tests assert behavior, not implementation; failure paths covered.
+5. **Tests** — critical logic has tests; tests assert behavior, not implementation; failure paths covered; a test on a shared or demo database asserts on the field it means (name and value), never on a bare auto-increment id or substring in page output that another row can share.
 6. **Maintainability** — follows repo conventions; no dead code, no needless abstraction or duplication of existing utilities.
 7. **Performance** — query count must not grow with row count: no query or request per row, relations and aggregates loaded by eager loading / keyed batch / grouped query, set-based bulk writes, a query-count test for each list, export and bulk path (`references/query-performance.md` §4, rule pack `QUERY` — always check it when the diff touches data access, even without a `Rules` column; an N+1 on a list or bulk path is `major`). Also unbounded loops/queries, missing pagination, heavy work on hot paths or the UI thread.
 8. **Security** — when the brief does not already include the security checklist and you see a security smell, load `ai-dev-team:security-review-checklist` and check it in the same pass.
