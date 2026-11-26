@@ -11,6 +11,7 @@ sessions that never loaded the dev-team skill are left alone. Any error lets the
 
 Turned off for one machine by the user with `leader_guard: off` in `.ai-dev-team/local.md`.
 """
+import calendar
 import json
 import mmap
 import os
@@ -35,8 +36,15 @@ SHARED_TREE = re.compile(
     r"\bgit\s+(checkout\s+(--|-p\b|\S+\s+--|[^-\s]\S*[./])|restore\s+(?!--staged)|stash\b|clean\b|reset\s+--(hard|keep|merge)\b)"
     r"|\bgit\s+(rebase|pull|merge)\b[^;&|\n]*--autostash"
     r"|\bpkill\b|\bkillall\b|\bnohup\b"
-    r"|(^|[^&|>])&\s*($|;|\n)"
+    r"|(^|[^&|>])&\s*($|;|\n|\))"
+    r"|\bsetsid\b|\bdisown\b"
 )
+WAIT_LOOP = re.compile(r"\b(while|until|for)\b[^;\n]*[;\n]?\s*do\b(?:(?!\bdone\b).)*?\bsleep\b", re.S)
+WAIT_REASON = (
+    "ai-dev-team guard (BASE-14, COST-3): a loop with `sleep` that waits on another process or a file is not allowed "
+    "(a `pgrep -f` loop can match its own command line and never end). Run the command itself through "
+    "$TEAM_BIN/run-heavy.sh (it applies a timeout) in the foreground, or with run_in_background and end your turn: "
+    "you are resumed when it finishes. The leader waits with one ScheduleWakeup or Monitor checkpoint.")
 AGENT_GIT = re.compile(r"\bgit\s+(switch|checkout\b|branch\s+-[dD]|commit|add|rm\b|mv\b|reset\b|restore\b)")
 SHARED_REASON = (
     "ai-dev-team guard: this command can discard or hide other people's work on the shared tree or bypass the "
@@ -398,6 +406,81 @@ def spawn_denied(data):
     return kind.startswith('ai-dev-team:') and not tool_input.get('model')
 
 
+CHECKPOINT_REASON = (
+    "ai-dev-team leader guard (dev-team SKILL, Unattended runs 6 Watchdog): agents of this session are still "
+    "running and no checkpoint is armed, so nothing wakes you if one hangs. Before ending the turn arm one "
+    "checkpoint: ScheduleWakeup (delaySeconds ~300, prompt `watchdog checkpoint: check running agents, post the "
+    "board line`) or a Monitor. At each checkpoint an agent with no new output for ~20 minutes, or a test or "
+    "build older than its timeout, is stuck — stop it and brief a fresh agent from its notes.")
+
+
+def _ts(value):
+    try:
+        return calendar.timegm(time.strptime(value[:19], "%Y-%m-%dT%H:%M:%S"))
+    except (TypeError, ValueError):
+        return None
+
+
+def running_agents(transcript):
+    """Background agents of this session whose run has not finished (from the subagents' meta files)."""
+    folder = os.path.join(transcript[:-len('.jsonl')], 'subagents')
+    names = []
+    now = time.time()
+    for name in os.listdir(folder) if os.path.isdir(folder) else []:
+        if not name.endswith('.meta.json'):
+            continue
+        path = os.path.join(folder, name)
+        log = path[:-len('.meta.json')] + '.jsonl'
+        if now - os.path.getmtime(log if os.path.exists(log) else path) > 86400:
+            continue
+        with open(path, encoding='utf-8') as fh:
+            meta = json.load(fh)
+        if meta.get('requestShape') == 'background' and not meta.get('finished') and not meta.get('stoppedByUser'):
+            names.append(meta.get('description') or name)
+    return names
+
+
+def checkpoint_armed(transcript):
+    """True when a ScheduleWakeup, Monitor or cron armed by this session has not fired or expired yet."""
+    now = time.time()
+    armed = False
+    with open(transcript, encoding='utf-8', errors='ignore') as fh:
+        for line in fh:
+            if '"tool_use"' not in line or not re.search(r'"(ScheduleWakeup|Monitor|CronCreate|CronDelete)"', line):
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            started = _ts(entry.get('timestamp'))
+            for block in (entry.get('message') or {}).get('content') or []:
+                if not isinstance(block, dict) or block.get('type') != 'tool_use':
+                    continue
+                name, args = block.get('name'), block.get('input') or {}
+                if name == 'ScheduleWakeup':
+                    armed = bool(not args.get('stop') and started and started + float(args.get('delaySeconds') or 0) + 60 > now)
+                elif name == 'Monitor':
+                    armed = bool(started and started + float(args.get('timeout_ms') or 1800000) / 1000 > now)
+                elif name == 'CronCreate':
+                    armed = True
+                elif name == 'CronDelete':
+                    armed = False
+    return armed
+
+
+def stop_check(data):
+    """Stop hook: the leader may not end a turn with agents running and no checkpoint armed."""
+    transcript = data.get('transcript_path') or ''
+    if data.get('stop_hook_active') or not transcript.endswith('.jsonl') or not leading_run(data):
+        return
+    root = find_root(data.get('cwd'))
+    if not root or guard_off(root):
+        return
+    agents = running_agents(transcript)
+    if agents and not checkpoint_armed(transcript):
+        print(json.dumps({'decision': 'block', 'reason': CHECKPOINT_REASON + ' Running: ' + ', '.join(agents[:6]) + '.'}))
+
+
 def deny(reason):
     print(json.dumps({'hookSpecificOutput': {
         'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', 'permissionDecisionReason': reason}}))
@@ -405,6 +488,9 @@ def deny(reason):
 
 def main():
     data = json.load(sys.stdin)
+    if data.get('hook_event_name') == 'Stop':
+        stop_check(data)
+        return
     root = find_run_root(data)
     if not root or guard_off(root):
         return
@@ -412,6 +498,9 @@ def main():
     tool = data.get('tool_name')
     if tool == 'Bash' and shared_tree_denied(data, agent):
         deny(SHARED_REASON)
+        return
+    if tool == 'Bash' and WAIT_LOOP.search((data.get('tool_input') or {}).get('command') or ''):
+        deny(WAIT_REASON)
         return
     if tool == 'Bash' and substitution_denied(data):
         deny(SUBST_REASON)
