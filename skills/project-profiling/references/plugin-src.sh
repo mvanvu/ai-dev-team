@@ -3,7 +3,8 @@
 #
 # Usage: $TEAM_BIN/plugin-src.sh resolve <repo root> [--no-clone]
 #          Prints `<path> <how>` (how: local, machine, self, sibling, cloned) or `none user` / `none not-found`.
-#          Order: `plugin_src:` in <repo root>/.ai-dev-team/local.md (a path, or `none` = the user's choice);
+#          Order: `plugin_src:` in <repo root>/.ai-dev-team/local.md (a path, or `none (user)` = the user's choice;
+#          a bare `none` is the default of older templates and counts as not chosen);
 #          the machine file ~/.local/state/ai-dev-team/plugin-src; the plugin itself when it runs from a
 #          git checkout (claude --plugin-dir); <repo root>/../ai-dev-team; a clone of the installed
 #          marketplace's repository into ~/.local/state/ai-dev-team/source/ai-dev-team.
@@ -32,7 +33,11 @@ version_of() { sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$1" 2>/dev/null | he
 
 local_md() { printf '%s/.ai-dev-team/local.md' "$1"; }
 
-read_local() { sed -n 's/^plugin_src: *\([^ #]*\).*/\1/p' "$(local_md "$1")" 2>/dev/null | head -1; }
+read_local() {  # the value; `none` only when the user chose it (`none (user)`)
+  l="$(grep -m1 '^plugin_src:' "$(local_md "$1")" 2>/dev/null)"
+  v="$(printf '%s' "$l" | sed -n 's/^plugin_src: *\([^ #]*\).*/\1/p')"
+  case "$v" in none) case "$l" in *"none (user)"*) echo none ;; esac ;; *) echo "$v" ;; esac
+}
 
 write_local() {  # replace the plugin_src line in place; add it before the closing front-matter line if missing
   f="$(local_md "$1")"; [ -f "$f" ] || return 0
@@ -98,7 +103,7 @@ case "${1:-}" in
 resolve) resolve "${2:?repo root}" "${3:-}" ;;
 set)
   root="${2:?repo root}"; v="${3:?path or none}"
-  if [ "$v" = none ]; then write_local "$root" none; echo "none user"
+  if [ "$v" = none ]; then write_local "$root" "none (user)"; echo "none user"
   else v="$(cd "$v" 2>/dev/null && pwd)"; valid "$v" || { echo "not a checkout of ai-dev-team: $3" >&2; exit 2; }
        remember "$root" "$v" user; fi
   ;;
