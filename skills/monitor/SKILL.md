@@ -8,19 +8,19 @@ description: "Turns the in-session run monitor on or off: '/ai-dev-team:monitor 
 The monitor watches a dev-team run from inside its own session, so no separate plugin session and no cross-session message is needed. Its rules are pack `MON` (`references/monitor-checks.md`).
 
 ## Arguments
-`on`, `off` or `status` (no argument = `status`). Applies to the repo of the current session: the folder holding `.ai-dev-team/` (`$TEAM_STATE`).
+`on [<path>|none]`, `off` or `status` (no argument = `status`). A path or `none` after `on` is the user's choice of `plugin_src` and replaces any earlier one (`$TEAM_BIN/plugin-src.sh set <repo root> <path|none>`). Applies to the repo of the current session: the folder holding `.ai-dev-team/` (`$TEAM_STATE`).
 
 ## on
 1. Write `monitor: on (user, <HH:MM from date>)` in the front matter of `$TEAM_STATE/local.md` (create the file from the `ai-dev-team:project-profiling` template when missing; edit the line in place when present).
-2. `plugin_src` in `local.md` missing → ask the user once (AskUserQuestion): the path of the local checkout of the plugin's source repository, or `none` (proposals only, `references/monitor-checks.md` §3). Before writing a path, check it: `git -C <path> rev-parse --show-toplevel` succeeds and `<path>/.claude-plugin/plugin.json` names `ai-dev-team`. Never search the disk for it.
-3. Tell the user in one line: monitoring on, where plugin changes land, cadence (below), and that `/ai-dev-team:monitor off` stops it.
+2. Find `plugin_src` without asking: run `$TEAM_BIN/plugin-src.sh resolve <repo root>` now, while the user is present (a clone may need a network permission). It checks, in order, `plugin_src:` in `local.md` (a path, or `none` = the user's choice, kept), the machine file `~/.local/state/ai-dev-team/plugin-src` shared by every project on this machine, the plugin itself when it runs from a git checkout (`--plugin-dir`), `<repo root>/../ai-dev-team`, and finally clones the installed marketplace's repository into `~/.local/state/ai-dev-team/source/ai-dev-team`; each candidate must be a git checkout whose `plugin.json` names `ai-dev-team`. A found path is written to the machine file and to `local.md` by the script, so later sessions and other projects never ask again. Ask the user (AskUserQuestion: a path or `none`) only when it prints `none not-found` (no network, no marketplace), and save the answer with `plugin-src.sh set`. Never search the disk beyond these places.
+3. Tell the user in one line: monitoring on, `plugin_src = <path> (<how the script found it>)`, cadence (below), and that `/ai-dev-team:monitor off` stops it.
 4. A dev-team run in progress (agents running or tasks open on the board) → spawn the first scan now (below). No run → the next dev-team run starts it.
 
 ## off
 Write `monitor: off (user, <time>)`; stop a running monitor agent with `TaskStop`; no new scan is armed. A worktree an apply-mode agent left is reported to the user with `monitor-integrate.sh drop <worktree>` as the clean-up.
 
 ## status
-Read `monitor:` and `plugin_src:` from `local.md` and the `monitor-last:` line of the board notes; answer in one or two lines.
+Read `monitor:` and `plugin_src:` from `local.md` and the `monitor-last:` line of the board notes, and run `$TEAM_BIN/plugin-src.sh version <repo root>`; answer in one or two lines, naming the unpushed commits in `plugin_src` when there are any. The run's final report carries the same `plugin:` line while the monitor is on, so landed commits are never left unnoticed in a checkout the user does not work in (a clone under `~/.local/state`).
 
 ## Leader procedure while on (dev-team, Phase 0 to Phase 6)
 - **Cadence**: at a watchdog checkpoint, start a scan when ~30 minutes passed since `monitor-last:` or a task reached `done` since then, and no monitor agent is running. Record `monitor-last: <HH:MM> (<n> findings)` in the board notes. A monitor counts against `max_verifiers` and waits behind fix rounds and verdicts of open tasks.

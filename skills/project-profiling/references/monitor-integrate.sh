@@ -19,6 +19,7 @@ mkdir -p "$state"
 case "${1:-}" in
 start)
   src="$(cd "${2:?plugin_src}" && git rev-parse --show-toplevel)" || exit 2
+  "$(dirname "$0")/plugin-src.sh" sync "$src"   # a clean checkout is fast-forwarded to its upstream first
   base="$(git -C "$src" symbolic-ref --short HEAD)" || exit 2
   id="$(date +%Y%m%d-%H%M%S)-$$"
   wt="$state/wt-$id"
