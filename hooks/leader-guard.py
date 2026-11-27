@@ -1,7 +1,7 @@
 """Leader guard for the ai-dev-team plugin (PreToolUse).
 
 During a dev-team run the main session is the leader: it plans, briefs and talks to the user, while agents
-change the project's files. This hook denies a leader tool call that would change a project file outside
+change the project's files. This hook denies a leader tool call that would change a project file (or a file in another git repository) outside
 `.ai-dev-team/` and `.claude/`, or stage a whole folder, or `cd` outside a subshell. Agent calls (the input carries `agent_id`) may edit
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
 detach a process from the harness are denied for everyone, a leader spawn of a team agent without an explicit `model` is denied, as are shell writes into the team files that still
@@ -160,6 +160,23 @@ def inside(path, root):
     return path == root or path.startswith(root + os.sep)
 
 
+def git_toplevel(path):
+    """The working tree that holds `path` (a `.git` directory or worktree file above it), else None."""
+    start = os.path.dirname(path)
+    while not os.path.isdir(start):
+        parent = os.path.dirname(start)
+        if parent == start:
+            return None
+        start = parent
+    while True:
+        if os.path.exists(os.path.join(start, '.git')):
+            return start
+        parent = os.path.dirname(start)
+        if parent == start:
+            return None
+        start = parent
+
+
 def edit_denied(data, root):
     tool_input = data.get('tool_input') or {}
     target = tool_input.get('file_path') or tool_input.get('notebook_path')
@@ -167,7 +184,10 @@ def edit_denied(data, root):
         return False
     target = os.path.abspath(os.path.join(data.get('cwd') or root, target))
     if not inside(target, root):
-        return False
+        # A run's tasks may change a sibling repository; its files are agent work too.
+        root = git_toplevel(target)
+        if not root or inside(target, os.path.expanduser('~/.claude')):
+            return False
     rel = os.path.relpath(target, root)
     if rel.split(os.sep, 1)[0] in ALLOWED_DIRS:
         return False
