@@ -6,7 +6,8 @@ change the project's files. This hook denies a leader tool call that would chang
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
 detach a process from the harness are denied for everyone, a leader spawn of a team agent without an explicit `model` is denied, as are shell writes into the team files that still
 expand a backtick. Agents may not write project files through inline node / python scripts or run `sed -i` over
-several files (COST-8). A monitor agent may not write project files (MON-1). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
+several files (COST-8). A monitor agent may not write project files (MON-1). A leader note line in the board or decisions whose
+leading time is ahead of the clock is denied (note times come from `date`). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
 sessions that never loaded the dev-team skill are left alone. Any error lets the call through.
 
 Turned off for one machine by the user with `leader_guard: off` in `.ai-dev-team/local.md`.
@@ -496,6 +497,52 @@ def monitor_write_denied(data, root):
     return inside(target, root) and os.path.relpath(target, root).split(os.sep, 1)[0] != '.ai-dev-team'
 
 
+NOTE_FILES = ('02_tasks.md', 'decisions.md')
+NOTE_TIME = re.compile(r"(?:^|\n|\\n|[/^|'\x22])[ \t]*-[ \t]+([01]\d|2[0-3]):([0-5]\d)\b")
+NOTE_WRITE = re.compile(r">>?|\btee\b|\b(?:perl|sed)\b[^\n]*\s-[A-Za-z]*i")
+NOTE_SLACK = 2  # minutes a literal note time may run ahead of the clock
+TIME_REASON = (
+    "ai-dev-team leader guard (dev-team SKILL, Progress to the user): a board note or decision line starts with a "
+    "time later than the clock now ({now}). Note times come from `date +%H:%M` run at that moment, never estimated: "
+    "write `- $(date +%H:%M) …` in an unquoted heredoc or echo, or run `date +%H:%M` first and use what it prints.")
+
+
+def future_note_time(data, now=None):
+    """A leader write to the board or decisions that adds a note line whose leading `HH:MM` is ahead of the clock.
+
+    Only times not already at the start of a line in the target file count, so moving or correcting an existing
+    line passes; earlier times (a verdict or user message recorded late) always pass. Returns the clock or None."""
+    tool_input = data.get('tool_input') or {}
+    if data.get('tool_name') == 'Bash':
+        text = tool_input.get('command') or ''
+        names = [n for n in NOTE_FILES if n in text]
+        if not names or not NOTE_WRITE.search(text):
+            return None
+        targets = [p for p in ABS_PATH.findall(text) if os.path.basename(p) in names]
+    else:
+        target = tool_input.get('file_path') or ''
+        if os.path.basename(target) not in NOTE_FILES:
+            return None
+        text = tool_input.get('new_string') or tool_input.get('content') or ''
+        old = tool_input.get('old_string') or ''
+        text = '\n'.join(line for line in text.split('\n') if line not in old)
+        targets = [target]
+    existing = ''
+    for path in targets:
+        try:
+            with open(path, encoding='utf-8', errors='ignore') as fh:
+                existing += fh.read()
+        except OSError:
+            pass
+    clock = time.localtime(now)
+    minute = clock.tm_hour * 60 + clock.tm_min
+    for hour, mins in NOTE_TIME.findall(text):
+        ahead = (int(hour) * 60 + int(mins) - minute) % 1440
+        if NOTE_SLACK < ahead < 720 and not re.search(r"(?m)^[ \t]*-[ \t]+%s:%s\b" % (hour, mins), existing):
+            return time.strftime('%H:%M', clock)
+    return None
+
+
 MODEL_REASON = (
     "ai-dev-team leader guard: every spawn of a team agent passes `model` explicitly, taken from the Model per role "
     "table (dev-team SKILL); an omitted model inherits the session's model instead of the task's.")
@@ -631,6 +678,11 @@ def main():
     if tool == 'Bash' and cd_denied(data):
         deny(CD_REASON)
         return
+    if tool in ('Bash', 'Edit', 'Write'):
+        clock = future_note_time(data)
+        if clock:
+            deny(TIME_REASON.format(now=clock))
+            return
     if tool == 'Bash' and stage_denied(data, root):
         deny("ai-dev-team leader guard: stage only the task's own files by name (BASE-7), never `git add -A`, "
              "`git add .`, `-u`, a whole folder, the whole `git status` list, a `--pathspec-from-file` list or `xargs git add` "

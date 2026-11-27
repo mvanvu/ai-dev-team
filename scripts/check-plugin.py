@@ -9,6 +9,7 @@ Verifies that cross-references between agents, skills and reference files still 
   5. rule IDs (COMPACT-3, ...) used anywhere exist in their pack
   6. the plugin version has a change log row; frontmatter names match file names
   7. the leader guard's shared-tree check allows words inside searched or stored text and denies run text
+  8. the leader guard denies a new board or decision note line whose time is ahead of the clock, and allows `date`
 
 Usage: python3 scripts/check-plugin.py   (exit 0 clean, 1 problems)
 """
@@ -16,6 +17,7 @@ import importlib.util
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -144,6 +146,22 @@ GUARD_CASES = [
 for command, expected in GUARD_CASES:
     if guard.shared_tree_denied({"tool_input": {"command": command}}, True) != expected:
         problem(ROOT / "hooks" / "leader-guard.py", f"shared-tree guard should {'deny' if expected else 'allow'}: {command!r}")
+
+# 8: leader guard — a new board note line may not start with a time ahead of the clock
+NOW = time.mktime(  # local clock 19:06
+(2026, 1, 1, 19, 6, 0, 0, 0, -1))
+NOTE_CASES = [
+    ("cat >> /x/.ai-dev-team/workspace/02_tasks.md <<'EOF'\n- 19:16 T1 DONE\nEOF", True),
+    ("cat >> /x/.ai-dev-team/workspace/02_tasks.md <<EOF\n- $(date +%H:%M) T1 DONE\nEOF", False),
+    ("cat >> /x/.ai-dev-team/workspace/02_tasks.md <<'EOF'\n- 19:07 T1 DONE\n- 18:40 user said go\nEOF", False),
+    ("perl -pi -e 's/^- 19:05 T1/- 19:30 T1/' /x/.ai-dev-team/workspace/02_tasks.md", True),
+    ("printf -- '- 19:20 D1 kept\\n' >> /x/.ai-dev-team/workspace/decisions.md", True),
+    ("echo '- 18:58 late' >> /x/.ai-dev-team/workspace/02_tasks.md", False),
+    ("grep -n '^- 19:30' /x/.ai-dev-team/workspace/02_tasks.md", False),
+]
+for command, expected in NOTE_CASES:
+    if bool(guard.future_note_time({"tool_name": "Bash", "tool_input": {"command": command}}, NOW)) != expected:
+        problem(ROOT / "hooks" / "leader-guard.py", f"note-time guard should {'deny' if expected else 'allow'}: {command!r}")
 
 if problems:
     print("\n".join(problems))
