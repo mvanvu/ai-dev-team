@@ -8,7 +8,12 @@ detach a process from the harness are denied for everyone, a leader spawn of a t
 expand a backtick. Agents may not write project files through inline node / python scripts or run `sed -i` over
 several files (COST-8). A monitor agent may not write project files (MON-1). A leader note line in the board or decisions whose
 leading time is ahead of the clock is denied (note times come from `date`). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
-sessions that never loaded the dev-team skill are left alone. Any error lets the call through.
+sessions that never loaded the dev-team skill (a Skill call or a typed `/ai-dev-team:dev-team`, not the skill listing)
+are left alone. Any error lets the call through.
+
+Hotfix (UserPromptSubmit): a user prompt naming a hotfix writes a per-session marker; while it stands the leader may change
+project files directly and the Stop watchdog check is skipped. Only the user's prompt sets it (no tool call may touch the
+marker); `hotfix off` / `hotfix done` / `end hotfix`, a typed `/ai-dev-team:dev-team`, or 6 hours without a hotfix prompt end it.
 
 Turned off for one machine by the user with `leader_guard: off` in `.ai-dev-team/local.md`.
 """
@@ -89,7 +94,8 @@ REASON = (
     "ai-dev-team leader guard: during a dev-team run the leader does not change project files "
     "(dev-team SKILL, first paragraph). Make it a board task for a developer, or a one-line text fix with Edit "
     "on a .md file. Files under .ai-dev-team/ and .claude/ stay writable. Only the user turns this off "
-    "(`leader_guard: off` in .ai-dev-team/local.md). "
+    "(`leader_guard: off` in .ai-dev-team/local.md), or allows direct edits for this session by asking for a "
+    "hotfix (a prompt with the word `hotfix`; `hotfix off` ends it) - tell the user, never write the marker yourself. "
     f"Installed plugin: TEAM_BIN={TEAM_BIN} - use it in every brief; if the board notes hold another TEAM_BIN, "
     "load /ai-dev-team:dev-team again (Phase 0 step 4) instead of searching the disk."
 )
@@ -139,21 +145,121 @@ def guard_off(root):
         return False
 
 
-def leading_run(data):
-    """True when this session loaded the dev-team skill; cached per session."""
-    session = re.sub(r'[^A-Za-z0-9_-]', '', str(data.get('session_id', '')))
-    cache = os.path.join(tempfile.gettempdir(), f'ai-dev-team-leader-{session}')
-    if session and os.path.exists(cache):
-        return True
-    path = data.get('transcript_path') or ''
+LOAD_HINT = re.compile(
+    rb'"skill":\s*"(?:ai-dev-team:)?dev-team"|<command-name>/(?:ai-dev-team:)?dev-team</command-name>')
+LOAD_SKILLS = ('ai-dev-team:dev-team', 'dev-team')
+LOAD_COMMAND = re.compile(
+    r'^\s*(?:<command-message>[^<]*</command-message>\s*)?<command-name>/(?:ai-dev-team:)?dev-team</command-name>')
+
+
+def _session(data):
+    return re.sub(r'[^A-Za-z0-9_-]', '', str(data.get('session_id', '')))
+
+
+def is_skill_load(entry):
+    """A transcript entry that really loads the dev-team skill: the leader's Skill call, or the user typing the command.
+
+    The skill listing, deny texts, tool results and quoted briefs that merely name the skill do not count."""
+    content = (entry.get('message') or {}).get('content')
+    if entry.get('type') == 'assistant':
+        return any(isinstance(b, dict) and b.get('type') == 'tool_use' and b.get('name') == 'Skill'
+                   and (b.get('input') or {}).get('skill') in LOAD_SKILLS for b in content or [])
+    if entry.get('type') != 'user' or entry.get('isMeta'):
+        return False
+    if isinstance(content, str):
+        return bool(LOAD_COMMAND.match(content))
+    return any(isinstance(b, dict) and b.get('type') == 'text' and LOAD_COMMAND.match(b.get('text') or '')
+               for b in content or [])
+
+
+def transcript_loads_skill(path):
+    """True when the transcript holds a real dev-team skill load (see is_skill_load)."""
     try:
         with open(path, 'rb') as fh, mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ) as mm:
-            found = mm.find(b'ai-dev-team:dev-team') != -1
+            for match in LOAD_HINT.finditer(mm):
+                start = mm.rfind(b'\n', 0, match.start()) + 1
+                end = mm.find(b'\n', match.end())
+                try:
+                    entry = json.loads(mm[start:end if end != -1 else len(mm)])
+                except ValueError:
+                    continue
+                if isinstance(entry, dict) and is_skill_load(entry):
+                    return True
     except (OSError, ValueError):
         return False
+    return False
+
+
+def leading_run(data):
+    """True when this session loaded the dev-team skill; a positive is cached per session.
+
+    The cache name carries a version: files written by the older rule (any mention of the skill) are ignored."""
+    session = _session(data)
+    cache = os.path.join(tempfile.gettempdir(), f'ai-dev-team-leader-v2-{session}')
+    if session and os.path.exists(cache):
+        return True
+    found = transcript_loads_skill(data.get('transcript_path') or '')
     if found and session:
         open(cache, 'w').close()
     return found
+
+
+HOTFIX_PREFIX = 'ai-dev-team-hotfix-'
+HOTFIX_TTL = 6 * 3600
+HOTFIX_ON = re.compile(r'\bhot[- ]?fix(es|ing)?\b', re.I)
+HOTFIX_OFF = re.compile(
+    r"\bhot[- ]?fix\s+(off|done|over|ended|end)\b|\b(end|stop|finish|no|not|without|don't)\s+(the\s+|a\s+)?hot[- ]?fix\b",
+    re.I)
+DEV_TEAM_PROMPT = re.compile(r'(^|\s)/(ai-dev-team:)?dev-team\b')
+HOTFIX_NOTE_ON = (
+    "ai-dev-team: the user asked for a hotfix. Until the user says `hotfix off` (or types /ai-dev-team:dev-team), the "
+    "leader guard lets this session change project files directly, with no board task, agents or watchdog required. "
+    "Normal care still applies: keep the change small, run the related tests and verify the fix; when a run is open, "
+    "add one line to decisions.md naming the hotfix and its files.")
+HOTFIX_NOTE_OFF = "ai-dev-team: hotfix ended; the leader guard applies again for this session."
+MARKER_REASON = (
+    "ai-dev-team guard: the hotfix marker is set only by the user's own prompt (the word `hotfix`); no tool call may "
+    "create, change or remove it. Ask the user if a direct edit is needed.")
+
+
+def hotfix_marker(data):
+    session = _session(data)
+    return os.path.join(tempfile.gettempdir(), HOTFIX_PREFIX + session) if session else None
+
+
+def hotfix_active(data, now=None):
+    """True while the user's hotfix marker for this session stands and is younger than HOTFIX_TTL."""
+    marker = hotfix_marker(data)
+    try:
+        return bool(marker) and (now or time.time()) - os.path.getmtime(marker) < HOTFIX_TTL
+    except OSError:
+        return False
+
+
+def prompt_check(data):
+    """UserPromptSubmit: a prompt naming a hotfix sets (or refreshes) the session's marker; ending words or a typed
+    dev-team command clear it. Returns 'on', 'off' or None."""
+    marker = hotfix_marker(data)
+    prompt = str(data.get('prompt') or '')
+    if not marker:
+        return None
+    if HOTFIX_OFF.search(prompt) or DEV_TEAM_PROMPT.search(prompt):
+        if os.path.exists(marker):
+            os.remove(marker)
+            return 'off'
+        return None
+    if HOTFIX_ON.search(prompt):
+        with open(marker, 'w') as fh:
+            fh.write(str(int(time.time())))
+        return 'on'
+    return None
+
+
+def marker_touched(data):
+    """A tool call that names the hotfix marker: only the user's prompt may set or clear it."""
+    tool_input = data.get('tool_input') or {}
+    text = ' '.join(str(tool_input.get(k) or '') for k in ('command', 'file_path', 'notebook_path'))
+    return HOTFIX_PREFIX in text
 
 
 def inside(path, root):
@@ -626,7 +732,7 @@ def stop_check(data):
     if data.get('stop_hook_active') or not transcript.endswith('.jsonl') or not leading_run(data):
         return
     root = find_root(data.get('cwd'))
-    if not root or guard_off(root):
+    if not root or guard_off(root) or hotfix_active(data):
         return
     agents = running_agents(transcript)
     if agents and not checkpoint_armed(transcript):
@@ -643,11 +749,21 @@ def main():
     if data.get('hook_event_name') == 'Stop':
         stop_check(data)
         return
+    if data.get('hook_event_name') == 'UserPromptSubmit':
+        state = prompt_check(data)
+        if state and find_root(data.get('cwd')):
+            print(json.dumps({'hookSpecificOutput': {
+                'hookEventName': 'UserPromptSubmit',
+                'additionalContext': HOTFIX_NOTE_ON if state == 'on' else HOTFIX_NOTE_OFF}}))
+        return
     root = find_run_root(data)
     if not root or guard_off(root):
         return
     agent = bool(data.get('agent_id'))
     tool = data.get('tool_name')
+    if marker_touched(data):
+        deny(MARKER_REASON)
+        return
     if tool == 'Bash' and shared_tree_denied(data, agent):
         deny(SHARED_REASON)
         return
@@ -690,6 +806,8 @@ def main():
              "ride along. Stage named files, or `git add -- $($TEAM_BIN/rule-checks.sh task-diff <id> --name-only)`. "
              "Reaching a denied effect another way counts as resending the denied call (BASE-34).")
         return
+    if hotfix_active(data):
+        return  # the user asked for a hotfix: direct project edits are allowed
     denied = bash_denied(data) if tool == 'Bash' else edit_denied(data, root)
     if denied:
         deny(REASON)

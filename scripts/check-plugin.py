@@ -10,13 +10,17 @@ Verifies that cross-references between agents, skills and reference files still 
   6. the plugin version has a change log row; frontmatter names match file names
   7. the leader guard's shared-tree check allows words inside searched or stored text and denies run text
   8. the leader guard denies a new board or decision note line whose time is ahead of the clock, and allows `date`
+  9. the leader guard counts only a real dev-team skill load (not the skill listing or a quote), and a user hotfix
+     prompt sets / ends the session's hotfix marker, which lets leader project edits through
 
 Usage: python3 scripts/check-plugin.py   (exit 0 clean, 1 problems)
 """
 import importlib.util
 import json
+import os
 import re
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -162,6 +166,50 @@ NOTE_CASES = [
 for command, expected in NOTE_CASES:
     if bool(guard.future_note_time({"tool_name": "Bash", "tool_input": {"command": command}}, NOW)) != expected:
         problem(ROOT / "hooks" / "leader-guard.py", f"note-time guard should {'deny' if expected else 'allow'}: {command!r}")
+
+# 9: leader guard — leader detection and the user's hotfix
+GUARD = ROOT / "hooks" / "leader-guard.py"
+LISTING = {"type": "attachment", "attachment": {"content": "- ai-dev-team:dev-team: Orchestrates the AI software team"}}
+LOAD_CASES = [
+    ([LISTING], False),
+    ([{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content":
+        "USER: <command-message>ai-dev-team:dev-team</command-message>\n<command-name>/ai-dev-team:dev-team</command-name>"}]}}],
+     False),
+    ([{"type": "assistant", "message": {"content": [{"type": "text", "text":
+        "a typed `<command-name>/ai-dev-team:dev-team</command-name>` counts"}]}}], False),
+    ([{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Agent", "input":
+        {"prompt": "\"skill\":\"ai-dev-team:dev-team\""}}]}}], False),
+    ([LISTING, {"type": "user", "message": {"role": "user", "content":
+        "<command-message>ai-dev-team:dev-team</command-message>\n<command-name>/ai-dev-team:dev-team</command-name>\n"
+        "<command-args>go</command-args>"}}], True),
+    ([{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input":
+        {"skill": "ai-dev-team:dev-team"}}]}}], True),
+]
+with tempfile.TemporaryDirectory() as tmp:
+    for n, (entries, expected) in enumerate(LOAD_CASES):
+        path = Path(tmp) / f"t{n}.jsonl"
+        path.write_text("".join(json.dumps(e, separators=(",", ":")) + "\n" for e in entries))
+        if guard.transcript_loads_skill(str(path)) != expected:
+            problem(GUARD, f"leader detection should be {expected} for case {n}")
+session = f"check-plugin-{os.getpid()}"
+hook = {"session_id": session}
+marker = guard.hotfix_marker(hook)
+for prompt, state, active in [
+    ("why does the command fail?", None, False),
+    ("please hotfix this, small change", "on", True),
+    ("also fix the second case", None, True),
+    ("hotfix off", "off", False),
+    ("hotfix: the button label", "on", True),
+    ("/ai-dev-team:dev-team continue", "off", False),
+    ("make it a task, not a hotfix", None, False),
+]:
+    got = guard.prompt_check(dict(hook, prompt=prompt))
+    if got != state or guard.hotfix_active(hook) != active:
+        problem(GUARD, f"hotfix prompt {prompt!r}: state {got}, active {guard.hotfix_active(hook)}")
+if os.path.exists(marker):
+    os.remove(marker)
+if not guard.marker_touched({"tool_input": {"command": f"touch /tmp/{guard.HOTFIX_PREFIX}x"}}):
+    problem(GUARD, "a tool call that writes the hotfix marker should be denied")
 
 if problems:
     print("\n".join(problems))

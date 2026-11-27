@@ -1,9 +1,25 @@
 {
-  "description": "ai-dev-team leader guard: during a dev-team run the main session (the leader) does not change project files; agents do. The leader does not end a turn with agents running and no checkpoint armed.",
+  "description": "ai-dev-team leader guard: during a dev-team run the main session (the leader) does not change project files; agents do. The leader does not end a turn with agents running and no checkpoint armed. A user prompt asking for a hotfix lets the session edit project files directly until the user ends it.",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "-I",
+              "-S",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/leader-guard.py"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
         "hooks": [
           {
             "type": "command",
