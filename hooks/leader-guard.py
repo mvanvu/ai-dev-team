@@ -6,7 +6,7 @@ change the project's files. This hook denies a leader tool call that would chang
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
 detach a process from the harness are denied for everyone, a leader spawn of a team agent without an explicit `model` is denied, as are shell writes into the team files that still
 expand a backtick. Agents may not write project files through inline node / python scripts or run `sed -i` over
-several files (COST-8). A monitor agent may not write project files (MON-1). A leader note line in the board or decisions whose
+several files (COST-8). A monitor agent may not write project files (MON-1), nor a qc agent while a reviewer or developer of the session runs (BASE-50). A leader note line in the board or decisions whose
 leading time is ahead of the clock is denied (note times come from `date`). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
 sessions that never loaded the dev-team skill (a Skill call or a typed `/ai-dev-team:dev-team`, not the skill listing)
 Its Stop check refuses the end of a leader turn while agents run with no checkpoint armed, or with `monitor: on` in local.md and
@@ -604,6 +604,36 @@ def monitor_write_denied(data, root):
     return inside(target, root) and os.path.relpath(target, root).split(os.sep, 1)[0] != '.ai-dev-team'
 
 
+QC_WRITE_REASON = (
+    "ai-dev-team guard (BASE-50): a verifier adds, edits or removes no project file while another team agent works "
+    "on the tree ({others}). Put the harness under $TEAM_WS/qa-artifacts/<task>/, run a check that needs code inside "
+    "the project after the review verdict or in your own copy of the tree, and hand a test worth keeping to the "
+    "leader as a proposed file in your report.")
+
+
+def qc_write_denied(data, root):
+    """A qc agent editing a project file outside the team folders while a reviewer or developer of the session runs.
+
+    Returns the other agents' types, else None."""
+    if str(data.get('agent_type') or '').rsplit(':', 1)[-1] != 'qc':
+        return None
+    target = (data.get('tool_input') or {}).get('file_path') or (data.get('tool_input') or {}).get('notebook_path')
+    if not target:
+        return None
+    target = os.path.abspath(os.path.join(data.get('cwd') or root, target))
+    if not inside(target, root) or os.path.relpath(target, root).split(os.sep, 1)[0] in ALLOWED_DIRS:
+        return None
+    # An agent's hook input may carry the leader's transcript or the agent's own one under `<leader>/subagents/`.
+    transcript = str(data.get('transcript_path') or '').split(os.sep + 'subagents' + os.sep, 1)[0]
+    if not transcript.endswith('.jsonl'):
+        transcript += '.jsonl'
+    metas = []
+    running_agents(transcript, metas)
+    others = sorted({str(m.get('agentType')) for m in metas
+                     if str(m.get('agentType') or '') in ('ai-dev-team:reviewer', 'ai-dev-team:developer')})
+    return ', '.join(others) or None
+
+
 NOTE_FILES = ('02_tasks.md', 'decisions.md')
 NOTE_TIME = re.compile(r"(?:^|\n|\\n|[/^|'\x22])[ \t]*-[ \t]+([01]\d|2[0-3]):([0-5]\d)\b")
 NOTE_WRITE = re.compile(r">>?|\btee\b|\b(?:perl|sed)\b[^\n]*\s-[A-Za-z]*i")
@@ -843,6 +873,11 @@ def main():
     if agent and tool in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit') and monitor_write_denied(data, root):
         deny(MONITOR_REASON)
         return
+    if agent and tool in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit'):
+        others = qc_write_denied(data, root)
+        if others:
+            deny(QC_WRITE_REASON.format(others=others))
+            return
     if agent and tool in ('Bash', 'Write') and extra_script_denied(data):
         deny(SCRIPT_REASON)
         return
