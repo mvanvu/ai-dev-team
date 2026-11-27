@@ -211,6 +211,27 @@ if os.path.exists(marker):
 if not guard.marker_touched({"tool_input": {"command": f"touch /tmp/{guard.HOTFIX_PREFIX}x"}}):
     problem(GUARD, "a tool call that writes the hotfix marker should be denied")
 
+# 10: leader guard — a monitor scan overdue while agents run blocks the end of a leader turn
+def _spawn(kind, minutes_ago, now):
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now - minutes_ago * 60))
+    return {"type": "assistant", "timestamp": stamp, "message": {"content": [
+        {"type": "tool_use", "name": "Agent", "input": {"subagent_type": kind, "model": "sonnet"}}]}}
+NOW10 = time.time()
+SCAN_CASES = [
+    ([_spawn("ai-dev-team:developer", 90, NOW10)], [], True),
+    ([_spawn("ai-dev-team:developer", 20, NOW10)], [], False),
+    ([_spawn("ai-dev-team:developer", 90, NOW10), _spawn("ai-dev-team:monitor", 10, NOW10)], [], False),
+    ([_spawn("ai-dev-team:developer", 90, NOW10), _spawn("ai-dev-team:monitor", 60, NOW10)], [], True),
+    ([_spawn("ai-dev-team:developer", 90, NOW10)], [{"agentType": "ai-dev-team:monitor"}], False),
+    ([_spawn("general-purpose", 90, NOW10)], [], False),
+]
+with tempfile.TemporaryDirectory() as tmp:
+    for n, (entries, metas, expected) in enumerate(SCAN_CASES):
+        path = Path(tmp) / f"s{n}.jsonl"
+        path.write_text("".join(json.dumps(e, separators=(",", ":")) + "\n" for e in entries))
+        if guard.monitor_scan_due(str(path), metas, NOW10) != expected:
+            problem(GUARD, f"monitor scan due should be {expected} for case {n}")
+
 if problems:
     print("\n".join(problems))
     print(f"\n{len(problems)} problem(s)")

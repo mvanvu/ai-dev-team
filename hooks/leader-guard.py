@@ -9,7 +9,8 @@ expand a backtick. Agents may not write project files through inline node / pyth
 several files (COST-8). A monitor agent may not write project files (MON-1). A leader note line in the board or decisions whose
 leading time is ahead of the clock is denied (note times come from `date`). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
 sessions that never loaded the dev-team skill (a Skill call or a typed `/ai-dev-team:dev-team`, not the skill listing)
-are left alone. Any error lets the call through.
+Its Stop check refuses the end of a leader turn while agents run with no checkpoint armed, or with `monitor: on` in local.md and
+no monitor agent spawned for over 40 minutes. are left alone. Any error lets the call through.
 
 Hotfix (UserPromptSubmit): a user prompt naming a hotfix writes a per-session marker; while it stands the leader may change
 project files directly and the Stop watchdog check is skipped. Only the user's prompt sets it (no tool call may touch the
@@ -676,8 +677,10 @@ def _ts(value):
         return None
 
 
-def running_agents(transcript):
-    """Background agents of this session whose run has not finished (from the subagents' meta files)."""
+def running_agents(transcript, metas=None):
+    """Background agents of this session whose run has not finished (from the subagents' meta files).
+
+    With a `metas` list, each running agent's meta is appended to it too."""
     folder = os.path.join(transcript[:-len('.jsonl')], 'subagents')
     names = []
     now = time.time()
@@ -692,6 +695,8 @@ def running_agents(transcript):
             meta = json.load(fh)
         if meta.get('requestShape') == 'background' and not meta.get('finished') and not meta.get('stoppedByUser'):
             names.append(meta.get('description') or name)
+            if metas is not None:
+                metas.append(meta)
     return names
 
 
@@ -726,17 +731,73 @@ def checkpoint_armed(transcript):
     return armed
 
 
+MONITOR_DUE = 40 * 60
+MONITOR_SCAN_REASON = (
+    "ai-dev-team leader guard (ai-dev-team:monitor skill, Leader procedure, Cadence): `monitor: on` in "
+    ".ai-dev-team/local.md, agents are running and no monitor scan has started for over 40 minutes. Before ending "
+    "the turn spawn `ai-dev-team:monitor` with model `sonnet`, mode `scan`, in the background (brief: the four team "
+    "paths, repo root, plugin_src, this transcript path, \"report findings per references/monitor-checks.md §2\"), "
+    "and write `monitor-last: <HH:MM> (<n> findings)` in the board notes when it reports.")
+
+
+def monitor_on(root):
+    try:
+        with open(os.path.join(root, '.ai-dev-team', 'local.md'), encoding='utf-8') as fh:
+            return re.search(r'^monitor:\s*on\b', fh.read(), re.M) is not None
+    except OSError:
+        return False
+
+
+def monitor_scan_due(transcript, metas, now=None):
+    """True when no monitor agent runs and none was spawned for MONITOR_DUE seconds.
+
+    The clock starts at the last monitor spawn, else at the session's first team-agent spawn."""
+    if any(str(m.get('agentType') or '').endswith('monitor') for m in metas):
+        return False
+    first = last_monitor = None
+    with open(transcript, encoding='utf-8', errors='ignore') as fh:
+        for line in fh:
+            if '"tool_use"' not in line or 'ai-dev-team:' not in line or '"subagent_type"' not in line:
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if entry.get('type') != 'assistant':
+                continue
+            started = _ts(entry.get('timestamp'))
+            for block in (entry.get('message') or {}).get('content') or []:
+                if not isinstance(block, dict) or block.get('type') != 'tool_use' or block.get('name') not in ('Agent', 'Task'):
+                    continue
+                kind = str((block.get('input') or {}).get('subagent_type') or '')
+                if not kind.startswith('ai-dev-team:') or not started:
+                    continue
+                first = first or started
+                if kind == 'ai-dev-team:monitor':
+                    last_monitor = started
+    since = last_monitor or first
+    return bool(since) and (now or time.time()) - since > MONITOR_DUE
+
+
 def stop_check(data):
-    """Stop hook: the leader may not end a turn with agents running and no checkpoint armed."""
+    """Stop hook: the leader may not end a turn with agents running and no checkpoint armed, nor skip a due monitor scan."""
     transcript = data.get('transcript_path') or ''
     if data.get('stop_hook_active') or not transcript.endswith('.jsonl') or not leading_run(data):
         return
     root = find_root(data.get('cwd'))
     if not root or guard_off(root) or hotfix_active(data):
         return
-    agents = running_agents(transcript)
-    if agents and not checkpoint_armed(transcript):
-        print(json.dumps({'decision': 'block', 'reason': CHECKPOINT_REASON + ' Running: ' + ', '.join(agents[:6]) + '.'}))
+    metas = []
+    agents = running_agents(transcript, metas)
+    if not agents:
+        return
+    reasons = []
+    if not checkpoint_armed(transcript):
+        reasons.append(CHECKPOINT_REASON + ' Running: ' + ', '.join(agents[:6]) + '.')
+    if monitor_on(root) and monitor_scan_due(transcript, metas):
+        reasons.append(MONITOR_SCAN_REASON)
+    if reasons:
+        print(json.dumps({'decision': 'block', 'reason': ' '.join(reasons)}))
 
 
 def deny(reason):
