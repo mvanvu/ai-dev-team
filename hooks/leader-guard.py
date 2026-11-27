@@ -198,8 +198,74 @@ def edit_denied(data, root):
     return True
 
 
+DATA_HEREDOC = re.compile(r"<<-?[ \t]*(['\"])(\w+)\1([^\n]*)\n(.*?)^[ \t]*\2[ \t]*$", re.S | re.M)
+DATA_SINKS = ('cat', 'tee')
+DATA_COMMANDS = DATA_SINKS + ('grep', 'egrep', 'fgrep', 'rg', 'echo', 'printf')
+RUNS_TEXT = re.compile(
+    r"\|\s*(?:sudo\s+)?(?:\S*/)?(?:(?:ba|z|da|k)?sh|python3?|perl|node|ruby|xargs|ssh|eval|source)\b"
+    r"|(?:^|[;&|(\n]|\$\()\s*(?:eval|source|\.)\s")
+
+
+def _command_word(text):
+    """First word of the last simple command in `text`, skipping `VAR=value` prefixes."""
+    words = re.split(r"[;&|(`\n]|\$\(", text)[-1].split()
+    while words and re.match(r"\w+=", words[0]):
+        words.pop(0)
+    return os.path.basename(words[0]) if words else ''
+
+
+def _quoted_args(command, strip):
+    """`command` with single-quoted arguments of DATA_COMMANDS emptied (all of them when strip is None)."""
+    out, scan, i, n = [], [], 0, len(command)
+    while i < n:
+        ch = command[i]
+        if ch == '\\':
+            out.append(command[i:i + 2])
+            scan.append('xx')
+            i += 2
+        elif ch == '"':
+            j = i + 1
+            while j < n and command[j] != '"':
+                j += 2 if command[j] == '\\' else 1
+            out.append(command[i:j + 1])
+            scan.append('""')
+            i = j + 1
+        elif ch == "'":
+            end = command.find("'", i + 1)
+            if end < 0:
+                out.append(command[i:])
+                break
+            data = strip is None or _command_word(''.join(scan)) in DATA_COMMANDS
+            out.append("''" if data else command[i:end + 1])
+            scan.append("''")
+            i = end + 1
+        else:
+            out.append(ch)
+            scan.append(ch)
+            i += 1
+    return ''.join(out)
+
+
+def strip_data(command):
+    """Drop text a command only stores or searches and never runs, so the shared-tree patterns do not match words
+    inside it: the body of a quoted heredoc fed to `cat` / `tee`, and single-quoted arguments of cat, tee, grep,
+    rg, echo and printf. Nothing is dropped when that text is piped into a shell or interpreter, or eval'd."""
+    def heredoc(match):
+        line_start = command.rfind('\n', 0, match.start()) + 1
+        head = command[line_start:match.start()]
+        if _command_word(head) not in DATA_SINKS or RUNS_TEXT.search(head + match.group(3)):
+            return match.group(0)
+        return "<<'%s'%s\n%s" % (match.group(2), match.group(3), match.group(2))
+
+    command = DATA_HEREDOC.sub(heredoc, command)
+    if RUNS_TEXT.search(_quoted_args(command, None)):
+        return command
+    return _quoted_args(command, True)
+
+
 def shared_tree_denied(data, agent):
     command, _ = strip_git_globals((data.get('tool_input') or {}).get('command') or '')
+    command = strip_data(command)
     if SHARED_TREE.search(command):
         return True
     return bool(agent and AGENT_GIT.search(command))

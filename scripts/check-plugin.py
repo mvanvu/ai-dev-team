@@ -8,9 +8,11 @@ Verifies that cross-references between agents, skills and reference files still 
   4. every rule pack in rule-packs.md has existing must-read files and numbered checks
   5. rule IDs (COMPACT-3, ...) used anywhere exist in their pack
   6. the plugin version has a change log row; frontmatter names match file names
+  7. the leader guard's shared-tree check allows words inside searched or stored text and denies run text
 
 Usage: python3 scripts/check-plugin.py   (exit 0 clean, 1 problems)
 """
+import importlib.util
 import json
 import re
 import sys
@@ -119,6 +121,29 @@ for path in list((ROOT / "agents").glob("*.md")) + list(SKILLS.glob("*/SKILL.md"
     expected = path.stem if path.parent.name == "agents" else path.parent.name
     if not match or match.group(1).strip() != expected:
         problem(path, f"frontmatter name should be '{expected}'")
+
+# 7: leader guard — words inside searched or stored text are data, run text still counts
+sys.dont_write_bytecode = True  # hooks/__pycache__ is tracked; loading the guard must not rewrite it
+spec = importlib.util.spec_from_file_location("leader_guard", ROOT / "hooks" / "leader-guard.py")
+guard = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(guard)
+GUARD_CASES = [
+    ("grep -nE 'sudo|pkexec|pkill|killall' a.sh b.sh", False),
+    ("rg 'git stash|nohup' src; echo 'run x & wait'", False),
+    ("cat >> notes.md <<'EOF'\n- avoid git stash and git mv; nohup x &\nEOF", False),
+    ("cat > notes.md <<'EOF'\nkeep\nEOF\ngit stash", True),
+    ("bash -c 'git stash'", True),
+    ("nohup x &", True),
+    ("echo 'git stash' | sh", True),
+    ("eval \"$(echo 'git stash')\"", True),
+    ("bash <<'EOF'\ngit stash\nEOF", True),
+    ("cat <<'EOF' | bash\npkill x\nEOF", True),
+    ("echo \"it's\"; git stash", True),
+    ("grep -n 'x' f &", True),
+]
+for command, expected in GUARD_CASES:
+    if guard.shared_tree_denied({"tool_input": {"command": command}}, True) != expected:
+        problem(ROOT / "hooks" / "leader-guard.py", f"shared-tree guard should {'deny' if expected else 'allow'}: {command!r}")
 
 if problems:
     print("\n".join(problems))
