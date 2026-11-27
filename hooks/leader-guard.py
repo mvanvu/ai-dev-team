@@ -472,6 +472,9 @@ def checkpoint_armed(transcript):
                 entry = json.loads(line)
             except ValueError:
                 continue
+            # Request copies (`api-request-blob`) repeat earlier tool calls without a timestamp.
+            if entry.get('type') != 'assistant':
+                continue
             started = _ts(entry.get('timestamp'))
             for block in (entry.get('message') or {}).get('content') or []:
                 if not isinstance(block, dict) or block.get('type') != 'tool_use':
