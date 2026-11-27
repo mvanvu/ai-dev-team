@@ -14,7 +14,15 @@
 #        $TEAM_BIN/plugin-src.sh version <repo root>             one line: installed, source, upstream versions,
 #                                                                unpushed commits, and the update command (never clones;
 #                                                                without a source it reads the upstream plugin.json)
-# Exit:  0 done; 2 usage or invalid path.
+#        $TEAM_BIN/plugin-src.sh update                          download the newest version into the plugin cache
+#                                                                (`claude plugin marketplace update` + `plugin update`);
+#                                                                skipped when ~/.local/state/ai-dev-team/plugin-update says
+#                                                                off or the plugin runs from a checkout. The running session
+#                                                                loads it only after /reload-plugins or a restart.
+#        $TEAM_BIN/plugin-src.sh auto-update [on|off|status]     Claude Code's own auto-update for this plugin's marketplace
+#                                                                (the `autoUpdate` field the /plugin toggle writes in
+#                                                                known_marketplaces.json); prints on / off / n-a
+# Exit:  0 done; 2 usage or invalid path; 3 update failed.
 set -u
 
 state="${XDG_STATE_HOME:-$HOME/.local/state}/ai-dev-team"
@@ -142,5 +150,29 @@ version)
   fi
   echo "$line"
   ;;
-*) sed -n 2,16p "$0"; exit 2 ;;
+update)
+  [ "$(cat "$state/plugin-update" 2>/dev/null)" = off ] && { echo "plugin update: off (user)"; exit 0; }
+  m="$(marketplace)"; [ -n "$m" ] || { echo "plugin update: n-a (running from a checkout)"; exit 0; }
+  old="$(version_of "$plugin_root/.claude-plugin/plugin.json")"
+  claude plugin marketplace update "$m" >/dev/null 2>&1 && claude plugin update "ai-dev-team@$m" -y >/dev/null 2>&1 \
+    || { echo "plugin update: failed (run: claude plugin marketplace update $m && claude plugin update ai-dev-team@$m)"; exit 3; }
+  new="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["plugins"][sys.argv[2]][0]["version"])' \
+    "$cfg/plugins/installed_plugins.json" "ai-dev-team@$m" 2>/dev/null)"
+  if [ -n "$new" ] && [ "$new" != "$old" ]; then echo "plugin update: downloaded $old → $new · /reload-plugins (or a restart) loads it"
+  else echo "plugin update: $old is the newest"; fi
+  ;;
+auto-update)
+  m="$(marketplace)"; [ -n "$m" ] || { echo n-a; exit 0; }
+  python3 - "$cfg/plugins/known_marketplaces.json" "$m" "${2:-status}" <<'PY'
+import json, sys
+path, m, act = sys.argv[1:]
+d = json.load(open(path))
+if m not in d: print("n-a"); sys.exit(0)
+if act in ("on", "off"):
+    d[m]["autoUpdate"] = act == "on"
+    json.dump(d, open(path, "w"), indent=2)
+print("on" if d[m].get("autoUpdate") else "off")
+PY
+  ;;
+*) sed -n 2,25p "$0"; exit 2 ;;
 esac
