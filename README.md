@@ -9,6 +9,7 @@ A Claude Code plugin that adds a 3-agent software team and an orchestrator skill
 | leader (the `dev-team` skill, in the main session) | session model | Profiles the repo, plans with the user (with `superpowers` brainstorming + writing-plans when installed), owns the task board, briefs agents, merges feedback, reports |
 | `developer` | opus (sonnet for small changes and layout fixes; fable only under the Fable policy you pick once per run (auto with a report / ask each time / never) — for an escalation after 3 failed fix rounds, hard-to-reproduce bugs, complex high-risk tasks, audits and large plans) | Builds every task test-first — one side per task: server (schema, APIs with contract tests, jobs, infra) or client (web, PWA, Flutter / Capacitor / native, against the server contract of a finished task); writes the UI spec before screens are built; applies fixes |
 | `reviewer` | opus (sonnet for low-risk task reviews) | One read-only pass per task over code quality, security and UI conformance (design QA); threat models, full audits, final-review dimensions and adversarial verification |
+| `monitor` | sonnet scan, opus apply | Off by default; `/ai-dev-team:monitor on` in a project session turns it on. Every ~30 minutes or after a task, it reads what the leader and agents did since its last scan, reports rule breaks the leader fixes in this run, and lands plugin improvements in your local plugin checkout (`plugin_src`: own worktree, machine-wide lock, plugin checks, no version bump, no push) — no separate monitoring session or cross-session message needed |
 | `qc` | sonnet | Acceptance criteria and cross-module contracts with evidence; browser checks on the lightest engine that fits (Lightpanda, Playwright headless shell / WebKit, Claude in Chrome as last fallback), Flutter widget/golden tests; feature sign-off |
 
 All agents and skills are namespaced by the plugin, e.g. `ai-dev-team:developer`, `ai-dev-team:dev-team`.
@@ -116,7 +117,7 @@ The full-audit procedure and attack-class catalog in `skills/security-review-che
 .claude-plugin/plugin.json       plugin manifest
 .claude-plugin/marketplace.json  single-plugin marketplace (mvanvu)
 .claude-plugin/icon.png          plugin icon (source: scripts/icon-source.svg)
-agents/                          3 agent definitions (developer, reviewer, qc)
+agents/                          4 agent definitions (developer, reviewer, qc, monitor)
 skills/dev-team/                 orchestrator
 skills/<role-skill>/             per-role procedures (some have references/, e.g. project-profiling/references/run-heavy.sh)
 scripts/check-plugin.py          repo consistency check (cross-references, rule packs, version)

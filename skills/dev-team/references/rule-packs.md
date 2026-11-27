@@ -45,6 +45,7 @@ Paths are relative to the plugin's `skills/` directory. "Verified by" names the 
 | `CAPFEEL` | same as `CAP` | `pwa-headless-ui/references/capacitor-native-feel.md` | §10 | qc |
 | `ABUSE` | adds or changes a public or unauthenticated endpoint, a list/search/export endpoint, an upload or other endpoint that stores data per call, or an AI/agent feature | `security-review-checklist/references/automated-abuse.md` | sections §2–§9 (`ABUSE-3` = §3) | reviewer |
 | `RESEARCH` | is the request research the user asked for before planning (dev-team Phase 2) | `dev-team/references/request-research.md` | §5 | leader |
+| `MON` | the run monitor the user turned on (`/ai-dev-team:monitor on`); not a task pack — it governs the monitor agent and the leader's handling of its reports | `monitor/references/monitor-checks.md` | §4 | leader |
 
 Requirements that come from the feature itself keep their own IDs and are reported the same way: acceptance criteria (`AC-n` from the spec) and threat-model requirements (`SEC-n` from `$TEAM_WS/02_threat-model.md`).
 

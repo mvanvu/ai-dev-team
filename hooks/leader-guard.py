@@ -6,7 +6,7 @@ change the project's files. This hook denies a leader tool call that would chang
 files, but commands that discard or move other people's work on the shared tree, kill processes by name or
 detach a process from the harness are denied for everyone, a leader spawn of a team agent without an explicit `model` is denied, as are shell writes into the team files that still
 expand a backtick. Agents may not write project files through inline node / python scripts or run `sed -i` over
-several files (COST-8). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
+several files (COST-8). A monitor agent may not write project files (MON-1). Agents may not add a third browser script to a task's `qa-artifacts/` folder within 90 minutes. Repositories without a team workspace and leader
 sessions that never loaded the dev-team skill are left alone. Any error lets the call through.
 
 Turned off for one machine by the user with `leader_guard: off` in `.ai-dev-team/local.md`.
@@ -414,6 +414,22 @@ def extra_script_denied(data):
     return recent >= 2
 
 
+MONITOR_REASON = (
+    "ai-dev-team guard (MON-1): the monitor never changes the watched project. Report the finding to the leader as a "
+    "`run-fix`; plugin changes go only into the worktree from `$TEAM_BIN/monitor-integrate.sh start`.")
+
+
+def monitor_write_denied(data, root):
+    """A monitor agent writing a project file outside the team folder."""
+    if not str(data.get('agent_type') or '').endswith('monitor'):
+        return False
+    target = (data.get('tool_input') or {}).get('file_path') or (data.get('tool_input') or {}).get('notebook_path')
+    if not target:
+        return False
+    target = os.path.abspath(os.path.join(data.get('cwd') or root, target))
+    return inside(target, root) and os.path.relpath(target, root).split(os.sep, 1)[0] != '.ai-dev-team'
+
+
 MODEL_REASON = (
     "ai-dev-team leader guard: every spawn of a team agent passes `model` explicitly, taken from the Model per role "
     "table (dev-team SKILL); an omitted model inherits the session's model instead of the task's.")
@@ -533,6 +549,9 @@ def main():
         return
     if agent and tool == 'Bash' and inline_write_denied(data):
         deny(WRITE_REASON)
+        return
+    if agent and tool in ('Edit', 'Write', 'MultiEdit', 'NotebookEdit') and monitor_write_denied(data, root):
+        deny(MONITOR_REASON)
         return
     if agent and tool in ('Bash', 'Write') and extra_script_denied(data):
         deny(SCRIPT_REASON)
