@@ -48,6 +48,10 @@
 #                           *guard*, *no_raw*, *lint*_test*, *convention*) that no line of the profile's
 #                           "## Guard map" or guard command names by path or basename; profile defaults to
 #                           $TEAM_STATE/project-profile.md, else .ai-dev-team/project-profile.md
+#   guard-line <notes> [profile]
+#                           BASE-25: the task notes quote every part (split at && || ;) of the profile's guard
+#                           command as written (a Commands row whose first cell starts with "guard", or a "guard:"
+#                           line); a wrapper prefix is fine, a run narrowed to some files or one package is not
 #   review-coverage <id> <review file>
 #                           BASE (verdict gate): changed files of task <id> that the review's "## Files read" table
 #                           does not mark read (rows marked part or grep only do not count)
@@ -442,6 +446,37 @@ EOF_T
   echo "guard-coverage ok: $total meta test(s), all named in $profile"
 }
 
+guard_line() {
+  # The guard counts only when the notes quote every part of the profile's guard command as written (BASE-25):
+  # parts split at && / || / ; may sit on separate lines or behind a wrapper such as run-heavy.sh, but a part
+  # narrowed to some files or one package does not match.
+  local notes="${1:-}" profile="${2:-}" cmds c part missing
+  if [ -z "$profile" ]; then
+    if [ -n "${TEAM_STATE:-}" ] && [ -f "$TEAM_STATE/project-profile.md" ]; then profile="$TEAM_STATE/project-profile.md"
+    else profile=.ai-dev-team/project-profile.md; fi
+  fi
+  [ -f "$notes" ] && [ -f "$profile" ] || { echo "usage: $0 guard-line <notes> [profile]" >&2; return 64; }
+  cmds=$(awk -F'`' '
+    /^\|[[:space:]]*guard/ && NF >= 3 { print $2; next }
+    /^[[:space:]]*guard[[:space:]]*:/ { sub(/^[[:space:]]*guard[[:space:]]*:[[:space:]]*/, ""); gsub(/`/, ""); if ($0 != "") print }' "$profile")
+  [ -n "$cmds" ] || { echo "BASE-25 n-a: no guard command in $profile"; return 0; }
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    missing=""
+    while IFS= read -r part; do
+      [ -n "$part" ] || continue
+      grep -qF -- "$part" "$notes" || missing="${missing}  ${part}"$'\n'
+    done <<EOF_P
+$(printf '%s\n' "$c" | awk '{ gsub(/[[:space:]]*(&&|\|\||;)[[:space:]]*/, "\n"); print }' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+EOF_P
+    [ -z "$missing" ] && { echo "BASE-25 ok: $c"; return 0; }
+  done <<EOF_G
+$cmds
+EOF_G
+  echo "BASE-25 $notes: the profile guard is not quoted as written (narrowed or not run); parts missing:"
+  printf '%s' "$missing"
+  return 1
+}
 
 review_coverage() {
   # A changed file is covered when the review's "## Files read" table has a row whose first cell is its path
@@ -470,6 +505,7 @@ EOF
 case "$check" in
   arch) check_arch ${@+"$@"} ;;
   guard-coverage) guard_coverage ${@+"$@"} ;;
+  guard-line) guard_line ${@+"$@"} ;;
   review-coverage) review_coverage ${@+"$@"} ;;
   related-tests) related_tests ${@+"$@"} | sort -u ;;
   list-storage) check_list_storage ${@+"$@"} ;;
@@ -498,7 +534,7 @@ case "$check" in
     exit "$status"
     ;;
   *)
-    sed -n '6,50p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '6,/^# Exit:/p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
     ;;
 esac

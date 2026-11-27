@@ -22,7 +22,7 @@ Work in few turns (`COST-8`, `ai-dev-team:dev-team` → `references/resource-bud
 1. **Red**: write a test for the first acceptance behavior; run it; confirm it fails for the right reason.
 2. **Green**: write the minimal code to pass.
 3. **Refactor**: clean up while green.
-4. Repeat until the task's done-criteria are covered, then run once: the profile's `test (related)` command on the files you changed, the guard tests the profile maps to the areas you touched, lint / type-check, and the build if the task changes built output. That run is the task's evidence.
+4. Repeat until the task's done-criteria are covered, then run once: the profile's `test (related)` command on the files you changed, the guard tests the profile maps to the areas you touched, the profile's `guard` command exactly as written (never narrowed to your files, `BASE-25`), lint / type-check, and the build if the task changes built output. That run is the task's evidence.
 5. Never run the whole test suite, the whole e2e target or every guard suite per task (e2e: the profile's `test (e2e, one spec)` command on the specs the task adds or changes), unless the leader asks or the change touches shared infrastructure; the full suite runs once at feature sign-off.
 6. A test you did not touch, for code you did not change, fails: rerun that single file once. Still failing → write it in the notes as `not mine: <file> — <first error line>` and report it; do not rerun the suite to investigate, do not edit other tasks' files to make it pass. Concurrent edits by another agent and stale built output are the usual cause, and the leader resolves them.
 
