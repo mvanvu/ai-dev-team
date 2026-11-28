@@ -52,6 +52,10 @@
 #                           BASE-25: the task notes quote every part (split at && || ;) of the profile's guard
 #                           command as written (a Commands row whose first cell starts with "guard", or a "guard:"
 #                           line); a wrapper prefix is fine, a run narrowed to some files or one package is not
+#   disk [repo] [min GB]    COST-22   free space of the repository's filesystem (below <min GB>, default 20: no new
+#                           worktree task), and the git-ignored directories over 100 MB (build output, dependency
+#                           folders) of clean linked worktrees whose HEAD is merged into the main tree's HEAD,
+#                           printed as paths to delete once their task is done; read only, it never deletes
 #   review-coverage <id> <review file>
 #                           BASE (verdict gate): changed files of task <id> that the review's "## Files read" table
 #                           does not mark read (rows marked part or grep only do not count)
@@ -478,6 +482,59 @@ EOF_G
   return 1
 }
 
+disk_check() {
+  # COST-22, read only: free space of the repository's filesystem, and the git-ignored directories (build output,
+  # dependency folders) of every linked worktree whose HEAD is already merged into the main tree's HEAD. It prints
+  # what may be deleted; it never deletes anything.
+  local repo="${1:-.}" min_gb="${2:-20}" free_kb free_gb status=0 wt="" head="" line
+  git -C "$repo" rev-parse --git-dir >/dev/null 2>&1 || { echo "usage: $0 disk [repo] [min free GB]" >&2; return 64; }
+  repo=$(git -C "$repo" rev-parse --show-toplevel)
+  free_kb=$(df -Pk "$repo" | awk 'NR == 2 { print $4 }')
+  free_gb=$((free_kb / 1048576))
+  DISK_TOTAL_KB=0
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) disk_worktree "$repo" "$wt" "$head" || status=1; wt="${line#worktree }"; head="" ;;
+      "HEAD "*) head="${line#HEAD }" ;;
+    esac
+  done <<EOF_W
+$(git -C "$repo" worktree list --porcelain)
+EOF_W
+  disk_worktree "$repo" "$wt" "$head" || status=1
+  [ "$DISK_TOTAL_KB" -gt 0 ] && echo "COST-22 merged worktrees hold $((DISK_TOTAL_KB / 1024)) MB of ignored output"
+  if [ "$free_gb" -lt "$min_gb" ]; then
+    echo "COST-22 disk: ${free_gb}G free (below ${min_gb}G) — waiting: start no new worktree task"
+    status=1
+  else
+    echo "COST-22 disk: ${free_gb}G free — ok"
+  fi
+  return "$status"
+}
+
+# disk_worktree <main tree> <worktree> <HEAD>: prints the ignored directories over 100 MB of a linked worktree
+# whose HEAD is an ancestor of the main tree's HEAD; returns 1 when it printed any.
+disk_worktree() {
+  local repo="$1" wt="$2" head="$3" d kb shown=0
+  [ -n "$wt" ] && [ "$wt" != "$repo" ] && [ -d "$wt" ] && [ -n "$head" ] || return 0
+  git -C "$repo" merge-base --is-ancestor "$head" HEAD 2>/dev/null || return 0
+  # A worktree with uncommitted changes is a task still running (a new worktree's HEAD is merged too).
+  if [ -n "$(git -C "$wt" status --porcelain 2>/dev/null | head -n 1)" ]; then
+    echo "COST-22 skipped $wt: uncommitted changes (a running task)"
+    return 0
+  fi
+  while IFS= read -r d; do
+    d="${d%/}"
+    case "$d" in ''|.ai-dev-team|.ai-dev-team/*|.env*) continue ;; esac
+    kb=$(du -sk "$wt/$d" 2>/dev/null | awk '{ print $1 }')
+    [ -n "$kb" ] && [ "$kb" -ge 102400 ] || continue
+    echo "COST-22 merged worktree: $wt/$d $((kb / 1024)) MB — when its task is done on the board, delete it or remove the worktree"
+    DISK_TOTAL_KB=$((DISK_TOTAL_KB + kb)); shown=1
+  done <<EOF_D
+$(git -C "$wt" ls-files -o -i --exclude-standard --directory 2>/dev/null | grep '/$')
+EOF_D
+  [ "$shown" -eq 0 ]
+}
+
 review_coverage() {
   # A changed file is covered when the review's "## Files read" table has a row whose first cell is its path
   # (or a path suffix of it) and whose second cell starts with "read", or "skipped" for generated, lock or
@@ -521,6 +578,7 @@ case "$check" in
   task-base) task_base ${@+"$@"} ;;
   task-diff) task_diff ${@+"$@"} ;;
   agent-context) agent_context ${@+"$@"} ;;
+  disk) disk_check ${@+"$@"} ;;
   all)
     status=0
     check_arch || status=1
