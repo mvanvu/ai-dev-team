@@ -105,6 +105,7 @@ playwright_dir: <directory whose node_modules has Playwright: the project root, 
 framework_src: <where the framework's own source is readable, e.g. vendor/<framework> or a path inside the app container; none>
 leader_guard: on   # the user may set off; the leader never changes it
 monitor: off   # the in-session run monitor; set by the user with /ai-dev-team:monitor on|off
+monitor_push: ask   # auto = the leader pushes landed monitor commits at stop points (monitor-integrate.sh push); ask = only on the user's yes
 plugin_src: ask   # local checkout of the plugin's source repository the monitor lands changes in; ask = not chosen yet (found or cloned by $TEAM_BIN/plugin-src.sh resolve); none (user) = proposals only, the user's choice (a bare none from older templates counts as ask)
 heavy_workers: N
 heavy_slots: N

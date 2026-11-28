@@ -34,7 +34,7 @@ Apply mode (opus) takes the scan's `plugin` findings and, for each one it still 
 2. A scan reads only what is new since the last scan (the cursor of `monitor-scan.py`); a full re-read happens only when the cursor is missing.
 3. Every finding quotes the transcript line it rests on and names a rule ID, a `SKILL.md` section or `gap`.
 4. A `plugin` finding becomes a plugin change only after the apply-mode agent confirmed it on the transcript.
-5. Plugin changes are made only in a `monitor-integrate.sh` worktree, landed only by `monitor-integrate.sh land`, never bump the version and never push.
+5. Plugin changes are made only in a `monitor-integrate.sh` worktree, landed only by `monitor-integrate.sh land`; the monitor never bumps the version or pushes — only the leader pushes, at a stop point, through `monitor-integrate.sh push` and only with `monitor_push: auto` or the user's yes.
 6. Plugin text names no project, product, repository or file of the watched run.
 7. The leader applies every `run-fix` finding in this run, or writes in the board notes why not, before its next spawn.
 8. After a landed plugin change, the leader applies the new rule by hand in this run (the session runs the installed plugin, which a local commit does not change) and tells the user in one line: the commit and the rule.

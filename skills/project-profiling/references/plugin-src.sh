@@ -19,6 +19,11 @@
 #                                                                skipped when ~/.local/state/ai-dev-team/plugin-update says
 #                                                                off or the plugin runs from a checkout. The running session
 #                                                                loads it only after /reload-plugins or a restart.
+#        $TEAM_BIN/plugin-src.sh permissions <repo root>         let the monitor work unattended: merge into
+#                                                                <repo root>/.claude/settings.local.json the plugin
+#                                                                source and ~/.local/state/ai-dev-team as additional
+#                                                                directories, read access to this config dir's
+#                                                                transcripts, and allow rules for the monitor scripts
 #        $TEAM_BIN/plugin-src.sh auto-update [on|off|status]     Claude Code's own auto-update for this plugin's marketplace
 #                                                                (the `autoUpdate` field the /plugin toggle writes in
 #                                                                known_marketplaces.json); prints on / off / n-a
@@ -161,6 +166,28 @@ update)
   if [ -n "$new" ] && [ "$new" != "$old" ]; then echo "plugin update: downloaded $old → $new · /reload-plugins (or a restart) loads it"
   else echo "plugin update: $old is the newest"; fi
   ;;
+permissions)
+  root="${2:?repo root}"
+  read -r src how <<<"$(resolve "$root" --no-clone)"
+  [ "$src" = none ] && src=""
+  python3 - "$root/.claude/settings.local.json" "$src" "$state" "$cfg" <<'PY'
+import json, os, sys
+path, src, state, cfg = sys.argv[1:]
+d = json.load(open(path)) if os.path.exists(path) else {}
+p = d.setdefault("permissions", {})
+dirs = p.setdefault("additionalDirectories", [])
+allow = p.setdefault("allow", [])
+added = []
+for x in [src, state]:
+    if x and x not in dirs: dirs.append(x); added.append(x)
+for r in [f"Read(/{cfg}/projects/**)", "Bash(*/monitor-integrate.sh *)", "Bash(*/plugin-src.sh *)",
+          "Bash(*/monitor-scan.py *)"]:
+    if r not in allow: allow.append(r); added.append(r)
+os.makedirs(os.path.dirname(path), exist_ok=True)
+json.dump(d, open(path, "w"), indent=2); open(path, "a").write("\n")
+print("permissions: " + (", ".join(added) if added else "already set") + f" ({path})")
+PY
+  ;;
 auto-update)
   m="$(marketplace)"; [ -n "$m" ] || { echo n-a; exit 0; }
   python3 - "$cfg/plugins/known_marketplaces.json" "$m" "${2:-status}" <<'PY'
@@ -174,5 +201,5 @@ if act in ("on", "off"):
 print("on" if d[m].get("autoUpdate") else "off")
 PY
   ;;
-*) sed -n 2,25p "$0"; exit 2 ;;
+*) sed -n 2,30p "$0"; exit 2 ;;
 esac
